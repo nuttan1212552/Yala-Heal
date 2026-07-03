@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import BrandLogo from './BrandLogo';
 
 export default function Footer() {
   return (
@@ -6,17 +7,15 @@ export default function Footer() {
       <div style={{ maxWidth: 1180, margin: '0 auto', display: 'flex', flexWrap: 'wrap', gap: 40, justifyContent: 'space-between' }}>
         <div style={{ flex: '1 1 260px', maxWidth: 360 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 14 }}>
-            <span aria-hidden="true" style={{ width: 38, height: 38, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative' }}>
-              <span style={{ position: 'absolute', width: 15, height: 3.5, borderRadius: 3, background: '#fff' }} />
-              <span style={{ position: 'absolute', width: 3.5, height: 15, borderRadius: 3, background: '#fff' }} />
-            </span>
+            <BrandLogo size={40} />
             <span style={{ fontFamily: "'IBM Plex Sans Thai'", fontWeight: 700, fontSize: 18, color: 'var(--primary)' }}>Yala Heal</span>
           </div>
-          <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#52607A', margin: '0 0 14px' }}>
+          <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#52607A', margin: '0 0 16px' }}>
             ระบบผู้ช่วยยามภัยพิบัติผ่าน LINE Official Account เพื่อประชาชนเทศบาลนครยะลา
           </p>
-          <div aria-hidden="true" style={{ width: 70, height: 70, borderRadius: '50%', border: '1.5px dashed #C3CDDA', display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center', fontSize: 11, color: '#8592A3', fontFamily: "'IBM Plex Sans Thai'" }}>
-            ตรา<br />เทศบาล
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <BrandLogo size={64} />
+            <span style={{ fontSize: 13, color: '#52607A', lineHeight: 1.5 }}>ตราสัญลักษณ์<br />เทศบาลนครยะลา</span>
           </div>
         </div>
         <div style={{ display: 'flex', gap: 48, flexWrap: 'wrap' }}>

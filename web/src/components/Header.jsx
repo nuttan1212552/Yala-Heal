@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import BrandLogo from './BrandLogo';
 
 const TITLES = {
   '/sos': 'SOS แจ้งเหตุฉุกเฉิน',
@@ -7,18 +8,6 @@ const TITLES = {
   '/relief': 'ระบบเงินเยียวยา',
   '/dashboard': 'Dashboard เทศบาล',
 };
-
-function LogoMark({ size = 42, inner = 17, thick = 4 }) {
-  return (
-    <span
-      aria-hidden="true"
-      style={{ width: size, height: size, borderRadius: '50%', background: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative', flex: 'none' }}
-    >
-      <span style={{ position: 'absolute', width: inner, height: thick, borderRadius: 3, background: '#fff' }} />
-      <span style={{ position: 'absolute', width: thick, height: inner, borderRadius: 3, background: '#fff' }} />
-    </span>
-  );
-}
 
 export default function Header({ navOpen, toggleNav }) {
   const location = useLocation();
@@ -35,10 +24,10 @@ export default function Header({ navOpen, toggleNav }) {
             aria-label="กลับหน้าแรก Yala Heal"
             style={{ display: 'flex', alignItems: 'center', gap: 11, background: 'none', border: 'none', cursor: 'pointer', padding: 0, minWidth: 0 }}
           >
-            <LogoMark />
+            <BrandLogo size={44} />
             <span style={{ lineHeight: 1.1, textAlign: 'left' }}>
               <span style={{ display: 'block', fontFamily: "'IBM Plex Sans Thai'", fontWeight: 700, fontSize: 19, color: 'var(--primary)' }}>Yala Heal</span>
-              <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)' }}>ระบบผู้ช่วยยามภัยพิบัติ</span>
+              <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)' }}>เทศบาลนครยะลา</span>
             </span>
           </button>
           {!isHome && (
