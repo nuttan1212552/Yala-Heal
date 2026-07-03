@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { PHONE_RE, genRef, scrollTop } from '../lib/helpers';
 import { ShareIcon } from '../components/Icons';
+import { fetchJobs, insertJobApplication, insertJobReport, insertJobRating } from '../lib/db';
 
 const TAB_DEFS = [{ k: 'all', l: 'ทั้งหมด' }, { k: 'need', l: 'ต้องการ' }, { k: 'give', l: 'แบ่งปัน' }, { k: 'job', l: 'จ้างงาน/รับงาน' }];
 const NEW_TYPES = [{ k: 'need', l: 'ขอ/ต้องการ' }, { k: 'give', l: 'มี/แบ่งปัน' }, { k: 'gig', l: 'หาอาสา' }];
@@ -109,6 +110,11 @@ export default function Share() {
 
   // ---- ระบบจ้างงาน/รับงาน ----
   const [jobs, setJobs] = useState(SEED_JOBS);
+  useEffect(() => {
+    let alive = true;
+    fetchJobs().then((rows) => { if (alive && rows && rows.length) setJobs(rows); });
+    return () => { alive = false; };
+  }, []);
   const [selJob, setSelJob] = useState(null);
   const [applyStage, setApplyStage] = useState('verify'); // verify | confirm
   const [applyForm, setApplyForm] = useState({ phone: '', verified: false, verifying: false, err: '' });
@@ -173,6 +179,7 @@ export default function Share() {
     markApplied(selJob.id);
     bumpTrust();
     setJobs((list) => list.map((j) => (j.id === selJob.id ? { ...j, applied: Math.min(j.applied + 1, j.need) } : j)));
+    insertJobApplication(selJob.id, applyForm.phone.trim());
     setRef(genRef('JOB', 5));
     setView('jobDone'); scrollTop();
   };
@@ -180,6 +187,7 @@ export default function Share() {
   // ---- รายงานปัญหา ----
   const submitReport = () => {
     if (!reportReason) return;
+    insertJobReport(reportJob.id, reportReason);
     setReportJob(null); setReportReason('');
     showToast('รับเรื่องแล้ว · ทีมเทศบาลตรวจสอบภายใน 24 ชม.');
   };
@@ -187,6 +195,7 @@ export default function Share() {
   // ---- ให้คะแนน ----
   const submitRate = () => {
     if (rateStars < 1) return;
+    insertJobRating(SEED_DONE.id, rateStars, rateTags);
     setDoneRated(true);
     setRateStars(0); setRateTags([]);
     setView('list'); scrollTop();

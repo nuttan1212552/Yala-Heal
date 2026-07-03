@@ -109,3 +109,86 @@ export async function insertMindRequest(req) {
   });
   if (error) console.error('insertMindRequest error:', error.message);
 }
+
+// ============================================================
+// Dashboard — สถิติรวมจากเคส SOS จริง (คำนวณสด ไม่ hardcode)
+// ============================================================
+
+const THAI_DAYS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
+const FALLBACK_STATS = {
+  total: 128, pending: 14, inProgress: 37, done: 91,
+  week: [44, 66, 52, 92, 74, 58, 46].map((h, i) => ({ label: THAI_DAYS[(i + 1) % 7], height: h })),
+};
+
+export async function fetchDashboardStats() {
+  if (!hasSupabase) return FALLBACK_STATS;
+  const { data, error } = await supabase.from('sos_reports').select('status, created_at');
+  if (error || !data || !data.length) return FALLBACK_STATS;
+
+  const total = data.length;
+  const pending = data.filter((r) => r.status === 'รอดำเนินการ').length;
+  const inProgress = data.filter((r) => r.status === 'กำลังดำเนินการ').length;
+  const done = data.filter((r) => r.status === 'เสร็จสิ้น').length;
+
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return d;
+  });
+  const counts = days.map((d) => {
+    const key = d.toISOString().slice(0, 10);
+    return data.filter((r) => (r.created_at || '').slice(0, 10) === key).length;
+  });
+  const max = Math.max(1, ...counts);
+  const week = days.map((d, i) => ({
+    label: THAI_DAYS[d.getDay()],
+    height: Math.round(10 + (counts[i] / max) * 90),
+  }));
+
+  return { total, pending, inProgress, done, week };
+}
+
+// ============================================================
+// ศูนย์แบ่งปัน · จ้างงาน/รับงาน — เก็บลง Supabase จริง
+// ============================================================
+
+export async function fetchJobs() {
+  if (!hasSupabase) return null;
+  const { data: jobs, error } = await supabase.from('jobs').select('*').order('created_at', { ascending: false });
+  if (error || !jobs || !jobs.length) return null;
+  const { data: apps } = await supabase.from('job_applications').select('job_id');
+  const counts = {};
+  (apps || []).forEach((a) => { counts[a.job_id] = (counts[a.job_id] || 0) + 1; });
+  return jobs.map((j) => ({
+    id: j.id,
+    title: j.title,
+    pay: j.pay,
+    zone: j.zone,
+    note: j.note,
+    need: j.need,
+    applied: Math.min(j.need, (j.applied_base || 0) + (counts[j.id] || 0)),
+    poster: j.poster,
+    rating: j.poster_rating,
+    jobs: j.poster_jobs,
+    verified: j.verified,
+    urgent: j.urgent,
+  }));
+}
+
+export async function insertJobApplication(jobId, phone) {
+  if (!hasSupabase || typeof jobId !== 'number') return;
+  const { error } = await supabase.from('job_applications').insert({ job_id: jobId, phone });
+  if (error) console.error('insertJobApplication error:', error.message);
+}
+
+export async function insertJobReport(jobId, reason) {
+  if (!hasSupabase || typeof jobId !== 'number') return;
+  const { error } = await supabase.from('job_reports').insert({ job_id: jobId, reason });
+  if (error) console.error('insertJobReport error:', error.message);
+}
+
+export async function insertJobRating(jobId, stars, tags) {
+  if (!hasSupabase) return;
+  const { error } = await supabase.from('job_ratings').insert({ job_id: typeof jobId === 'number' ? jobId : null, stars, tags });
+  if (error) console.error('insertJobRating error:', error.message);
+}

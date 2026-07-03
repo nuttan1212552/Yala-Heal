@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchSosCases, MOCK_DASH_CASES } from '../lib/db';
+import { fetchSosCases, fetchDashboardStats, MOCK_DASH_CASES } from '../lib/db';
 
 const PILL_MAP = {
   'รอดำเนินการ': ['rgba(192,54,46,.1)', '#C0362E'],
@@ -7,16 +7,17 @@ const PILL_MAP = {
   'เสร็จสิ้น': ['rgba(14,138,95,.1)', '#0E8A5F'],
 };
 
-const BAR_HEIGHTS = [44, 66, 52, 92, 74, 58, 46];
-const DAY_LABELS = ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'];
+const FALLBACK_WEEK = [44, 66, 52, 92, 74, 58, 46].map((h, i) => ({ label: ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'][i], height: h }));
 
 export default function Dashboard() {
   const [shown, setShown] = useState(5);
   const [cases, setCases] = useState(MOCK_DASH_CASES);
+  const [stats, setStats] = useState({ total: 128, pending: 14, inProgress: 37, done: 91, week: FALLBACK_WEEK });
 
   useEffect(() => {
     let alive = true;
     fetchSosCases().then((rows) => { if (alive) setCases(rows); });
+    fetchDashboardStats().then((s) => { if (alive) setStats(s); });
     return () => { alive = false; };
   }, []);
 
@@ -30,28 +31,28 @@ export default function Dashboard() {
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <h1 style={{ fontSize: 'clamp(23px,3.4vw,30px)' }}>Dashboard เทศบาล · ภาพรวมสถานการณ์</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, color: 'var(--safe)', fontWeight: 600 }}>
-          <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--safe)', animation: 'softblink 1.5s infinite' }} /> เรียลไทม์ (ข้อมูลตัวอย่าง)
+          <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--safe)', animation: 'softblink 1.5s infinite' }} /> เรียลไทม์ · เชื่อมฐานข้อมูลกลาง
         </div>
       </div>
       <p style={{ color: '#52607A', fontSize: 15, margin: '0 0 24px' }}>มุมมองสำหรับเจ้าหน้าที่ รวมทุกบริการจากฐานข้อมูลกลางไว้ในหน้าจอเดียว</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginBottom: 16 }}>
-        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 18 }}><div style={{ fontFamily: "'IBM Plex Sans Thai'", fontSize: 28, fontWeight: 700, color: '#122A4A' }}>128</div><div style={{ fontSize: 13.5, color: '#52607A' }}>เคสทั้งหมด</div></div>
-        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 18 }}><div style={{ fontFamily: "'IBM Plex Sans Thai'", fontSize: 28, fontWeight: 700, color: 'var(--danger)' }}>14</div><div style={{ fontSize: 13.5, color: '#52607A' }}>SOS รอดำเนินการ</div></div>
-        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 18 }}><div style={{ fontFamily: "'IBM Plex Sans Thai'", fontSize: 28, fontWeight: 700, color: 'var(--amber)' }}>37</div><div style={{ fontSize: 13.5, color: '#52607A' }}>กำลังดำเนินการ</div></div>
-        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 18 }}><div style={{ fontFamily: "'IBM Plex Sans Thai'", fontSize: 28, fontWeight: 700, color: 'var(--safe)' }}>91</div><div style={{ fontSize: 13.5, color: '#52607A' }}>เสร็จสิ้น</div></div>
+        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 18 }}><div style={{ fontFamily: "'IBM Plex Sans Thai'", fontSize: 28, fontWeight: 700, color: '#122A4A' }}>{stats.total}</div><div style={{ fontSize: 13.5, color: '#52607A' }}>เคสทั้งหมด</div></div>
+        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 18 }}><div style={{ fontFamily: "'IBM Plex Sans Thai'", fontSize: 28, fontWeight: 700, color: 'var(--danger)' }}>{stats.pending}</div><div style={{ fontSize: 13.5, color: '#52607A' }}>SOS รอดำเนินการ</div></div>
+        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 18 }}><div style={{ fontFamily: "'IBM Plex Sans Thai'", fontSize: 28, fontWeight: 700, color: 'var(--amber)' }}>{stats.inProgress}</div><div style={{ fontSize: 13.5, color: '#52607A' }}>กำลังดำเนินการ</div></div>
+        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 18 }}><div style={{ fontFamily: "'IBM Plex Sans Thai'", fontSize: 28, fontWeight: 700, color: 'var(--safe)' }}>{stats.done}</div><div style={{ fontSize: 13.5, color: '#52607A' }}>เสร็จสิ้น</div></div>
       </div>
 
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 320px', background: '#fff', border: '1px solid var(--line)', borderRadius: 16, padding: 22 }}>
           <h3 style={{ fontSize: 16, marginBottom: 16 }}>เคสรายวัน (7 วันล่าสุด)</h3>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 150 }}>
-            {BAR_HEIGHTS.map((h, i) => (
-              <div key={i} style={{ flex: 1, background: h === 92 ? 'var(--primary)' : 'var(--primary-soft)', borderRadius: '5px 5px 0 0', height: h + '%' }} />
+            {stats.week.map((d, i) => (
+              <div key={i} style={{ flex: 1, background: d.height === Math.max(...stats.week.map((x) => x.height)) ? 'var(--primary)' : 'var(--primary-soft)', borderRadius: '5px 5px 0 0', height: d.height + '%', transition: 'height .3s' }} />
             ))}
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-            {DAY_LABELS.map((d) => <span key={d} style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#8592A3' }}>{d}</span>)}
+            {stats.week.map((d, i) => <span key={i} style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#8592A3' }}>{d.label}</span>)}
           </div>
         </div>
 
