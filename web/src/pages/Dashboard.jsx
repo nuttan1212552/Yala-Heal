@@ -9,15 +9,27 @@ const PILL_MAP = {
 
 const FALLBACK_WEEK = [44, 66, 52, 92, 74, 58, 46].map((h, i) => ({ label: ['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'][i], height: h }));
 
+const TILE_META = [
+  { key: 'total', label: 'เคสทั้งหมด', color: '#122A4A' },
+  { key: 'pending', label: 'SOS รอดำเนินการ', color: 'var(--danger)' },
+  { key: 'inProgress', label: 'กำลังดำเนินการ', color: 'var(--amber)' },
+  { key: 'done', label: 'เสร็จสิ้น', color: 'var(--safe)' },
+];
+
 export default function Dashboard() {
   const [shown, setShown] = useState(5);
   const [cases, setCases] = useState(MOCK_DASH_CASES);
-  const [stats, setStats] = useState({ total: 128, pending: 14, inProgress: 37, done: 91, week: FALLBACK_WEEK });
+  const [stats, setStats] = useState({ total: 0, pending: 0, inProgress: 0, done: 0, week: FALLBACK_WEEK });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let alive = true;
-    fetchSosCases().then((rows) => { if (alive) setCases(rows); });
-    fetchDashboardStats().then((s) => { if (alive) setStats(s); });
+    Promise.all([fetchSosCases(), fetchDashboardStats()]).then(([rows, s]) => {
+      if (!alive) return;
+      setCases(rows);
+      setStats(s);
+      setLoading(false);
+    });
     return () => { alive = false; };
   }, []);
 
@@ -30,17 +42,21 @@ export default function Dashboard() {
     <main style={{ maxWidth: 1120, margin: '0 auto', padding: 'clamp(24px,4vw,44px) 20px 72px' }}>
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
         <h1 style={{ fontSize: 'clamp(23px,3.4vw,30px)' }}>Dashboard เทศบาล · ภาพรวมสถานการณ์</h1>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, color: 'var(--safe)', fontWeight: 600 }}>
-          <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--safe)', animation: 'softblink 1.5s infinite' }} /> เรียลไทม์ · เชื่อมฐานข้อมูลกลาง
+        <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, color: loading ? '#8592A3' : 'var(--safe)', fontWeight: 600 }}>
+          <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', background: loading ? '#8592A3' : 'var(--safe)', animation: 'softblink 1.5s infinite' }} /> {loading ? 'กำลังโหลดข้อมูล…' : 'เรียลไทม์ · เชื่อมฐานข้อมูลกลาง'}
         </div>
       </div>
       <p style={{ color: '#52607A', fontSize: 15, margin: '0 0 24px' }}>มุมมองสำหรับเจ้าหน้าที่ รวมทุกบริการจากฐานข้อมูลกลางไว้ในหน้าจอเดียว</p>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: 12, marginBottom: 16 }}>
-        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 18 }}><div style={{ fontFamily: "'IBM Plex Sans Thai'", fontSize: 28, fontWeight: 700, color: '#122A4A' }}>{stats.total}</div><div style={{ fontSize: 13.5, color: '#52607A' }}>เคสทั้งหมด</div></div>
-        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 18 }}><div style={{ fontFamily: "'IBM Plex Sans Thai'", fontSize: 28, fontWeight: 700, color: 'var(--danger)' }}>{stats.pending}</div><div style={{ fontSize: 13.5, color: '#52607A' }}>SOS รอดำเนินการ</div></div>
-        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 18 }}><div style={{ fontFamily: "'IBM Plex Sans Thai'", fontSize: 28, fontWeight: 700, color: 'var(--amber)' }}>{stats.inProgress}</div><div style={{ fontSize: 13.5, color: '#52607A' }}>กำลังดำเนินการ</div></div>
-        <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 18 }}><div style={{ fontFamily: "'IBM Plex Sans Thai'", fontSize: 28, fontWeight: 700, color: 'var(--safe)' }}>{stats.done}</div><div style={{ fontSize: 13.5, color: '#52607A' }}>เสร็จสิ้น</div></div>
+        {TILE_META.map((t) => (
+          <div key={t.key} style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 14, padding: 18 }}>
+            {loading
+              ? <div className="yh-skel" style={{ width: 56, height: 30, marginBottom: 6 }} />
+              : <div style={{ fontFamily: "'IBM Plex Sans Thai'", fontSize: 28, fontWeight: 700, color: t.color }}>{stats[t.key]}</div>}
+            <div style={{ fontSize: 13.5, color: '#52607A' }}>{t.label}</div>
+          </div>
+        ))}
       </div>
 
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
@@ -48,11 +64,13 @@ export default function Dashboard() {
           <h3 style={{ fontSize: 16, marginBottom: 16 }}>เคสรายวัน (7 วันล่าสุด)</h3>
           <div style={{ display: 'flex', alignItems: 'flex-end', gap: 10, height: 150 }}>
             {stats.week.map((d, i) => (
-              <div key={i} style={{ flex: 1, background: d.height === Math.max(...stats.week.map((x) => x.height)) ? 'var(--primary)' : 'var(--primary-soft)', borderRadius: '5px 5px 0 0', height: d.height + '%', transition: 'height .3s' }} />
+              loading
+                ? <div key={i} className="yh-skel" style={{ flex: 1, height: (30 + ((i * 37) % 55)) + '%', borderRadius: '5px 5px 0 0' }} />
+                : <div key={i} style={{ flex: 1, background: d.height === Math.max(...stats.week.map((x) => x.height)) ? 'var(--primary)' : 'var(--primary-soft)', borderRadius: '5px 5px 0 0', height: d.height + '%', transition: 'height .3s' }} />
             ))}
           </div>
           <div style={{ display: 'flex', gap: 10, marginTop: 8 }}>
-            {stats.week.map((d, i) => <span key={i} style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#8592A3' }}>{d.label}</span>)}
+            {stats.week.map((d, i) => <span key={i} style={{ flex: 1, textAlign: 'center', fontSize: 12, color: '#8592A3' }}>{loading ? '' : d.label}</span>)}
           </div>
         </div>
 
@@ -73,6 +91,18 @@ export default function Dashboard() {
 
       <div style={{ background: '#fff', border: '1px solid var(--line)', borderRadius: 16, padding: 22, marginTop: 16 }}>
         <h3 style={{ fontSize: 16, marginBottom: 16 }}>เคสล่าสุด</h3>
+        {loading ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: '13px 6px', borderBottom: '1px solid var(--line)' }}>
+                <div className="yh-skel" style={{ height: 13, flex: '0 0 84px' }} />
+                <div className="yh-skel" style={{ height: 13, flex: 1 }} />
+                <div className="yh-skel" style={{ height: 13, width: 70 }} />
+                <div className="yh-skel" style={{ height: 22, width: 92, borderRadius: 100 }} />
+              </div>
+            ))}
+          </div>
+        ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           {rows.map((r) => {
             const [bg, color] = PILL_MAP[r.status];
@@ -86,7 +116,8 @@ export default function Dashboard() {
             );
           })}
         </div>
-        {hasMore && (
+        )}
+        {!loading && hasMore && (
           <button onClick={() => setShown((s) => s + 5)} style={{ marginTop: 14, width: '100%', background: '#fff', border: '1.5px solid var(--line)', color: 'var(--primary)', padding: 13, borderRadius: 11, fontWeight: 700, fontSize: 15, cursor: 'pointer', minHeight: 48 }}>
             โหลดเพิ่ม (เหลืออีก {remaining} รายการ)
           </button>
