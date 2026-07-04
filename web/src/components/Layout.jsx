@@ -5,6 +5,7 @@ import Header from './Header';
 import Footer from './Footer';
 import Toast from './Toast';
 import PdpaBanner from './PdpaBanner';
+import InAppBrowserBanner from './InAppBrowserBanner';
 
 export default function Layout() {
   const [navOpen, setNavOpen] = useState(false);
@@ -18,6 +19,7 @@ export default function Layout() {
   return (
     <div lang="th" style={{ color: '#17233A', minHeight: '100%' }}>
       <TopBar />
+      <InAppBrowserBanner />
       <Header navOpen={navOpen} toggleNav={() => setNavOpen((v) => !v)} />
       <Outlet />
       <Footer />
