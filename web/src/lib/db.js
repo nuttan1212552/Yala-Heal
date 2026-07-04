@@ -168,6 +168,7 @@ export async function fetchJobs() {
     need: j.need,
     applied: Math.min(j.need, (j.applied_base || 0) + (counts[j.id] || 0)),
     poster: j.poster,
+    posterPhone: j.poster_phone,
     rating: j.poster_rating,
     jobs: j.poster_jobs,
     verified: j.verified,
@@ -191,4 +192,33 @@ export async function insertJobRating(jobId, stars, tags) {
   if (!hasSupabase) return;
   const { error } = await supabase.from('job_ratings').insert({ job_id: typeof jobId === 'number' ? jobId : null, stars, tags });
   if (error) console.error('insertJobRating error:', error.message);
+}
+
+// ============================================================
+// LINE — เชื่อมบัญชี LINE เข้ากับเบอร์โทร + ส่งแจ้งเตือน
+// ============================================================
+
+const LINE_LOGIN_CHANNEL_ID = '2010600622';
+const LINE_REDIRECT_URI = 'https://yala-heal.vercel.app/api/line-callback';
+
+// สร้างลิงก์ไปหน้ายินยอมของ LINE — ใช้เบอร์โทรเป็น state เพื่อผูกกลับตอน callback
+export function lineLoginUrl(phone) {
+  const params = new URLSearchParams({
+    response_type: 'code',
+    client_id: LINE_LOGIN_CHANNEL_ID,
+    redirect_uri: LINE_REDIRECT_URI,
+    state: (phone || '').trim(),
+    scope: 'profile openid',
+  });
+  return `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
+}
+
+// ยิงแจ้งเตือนแบบ fire-and-forget — ไม่เชื่อม LINE ไว้ก็แค่เงียบๆ ไม่กระทบ flow หลัก
+export function notifyLine(phone, message) {
+  if (!phone || !message) return;
+  fetch('/api/line-notify', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ phone, message }),
+  }).catch(() => {});
 }

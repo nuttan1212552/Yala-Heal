@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { PHONE_RE, genRef, scrollTop } from '../lib/helpers';
 import { ShareIcon } from '../components/Icons';
-import { fetchJobs, insertJobApplication, insertJobReport, insertJobRating } from '../lib/db';
+import { fetchJobs, insertJobApplication, insertJobReport, insertJobRating, lineLoginUrl, notifyLine } from '../lib/db';
 
 const TAB_DEFS = [{ k: 'all', l: 'ทั้งหมด' }, { k: 'need', l: 'ต้องการ' }, { k: 'give', l: 'แบ่งปัน' }, { k: 'job', l: 'จ้างงาน/รับงาน' }];
 const NEW_TYPES = [{ k: 'need', l: 'ขอ/ต้องการ' }, { k: 'give', l: 'มี/แบ่งปัน' }, { k: 'gig', l: 'หาอาสา' }];
@@ -97,7 +97,17 @@ function TrustRow({ name, rating, jobs, verified }) {
 
 export default function Share() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { donations, addDonation, showToast } = useApp();
+  const [posterPhone, setPosterPhone] = useState('');
+
+  useEffect(() => {
+    const line = searchParams.get('line');
+    if (!line) return;
+    showToast(line === 'connected' ? 'เชื่อมต่อ LINE สำเร็จ! พร้อมรับแจ้งเตือนแล้ว' : 'เชื่อมต่อ LINE ไม่สำเร็จ ลองใหม่อีกครั้ง');
+    searchParams.delete('line');
+    setSearchParams(searchParams, { replace: true });
+  }, []);
 
   const [tab, setTab] = useState('all');
   const [view, setView] = useState('list');
@@ -180,6 +190,10 @@ export default function Share() {
     bumpTrust();
     setJobs((list) => list.map((j) => (j.id === selJob.id ? { ...j, applied: Math.min(j.applied + 1, j.need) } : j)));
     insertJobApplication(selJob.id, applyForm.phone.trim());
+    if (selJob.posterPhone) {
+      const maskedPhone = applyForm.phone.trim().replace(/^(\d{3})\d{4}(\d{3})$/, '$1-xxxx-$2');
+      notifyLine(selJob.posterPhone, `🟢 มีคนกดรับงาน "${selJob.title}" แล้ว!\nผู้สมัคร: ${maskedPhone} · ยืนยันตัวตนด้วย ThaID แล้ว\nดูรายละเอียดที่เว็บ Yala Heal`);
+    }
     setRef(genRef('JOB', 5));
     setView('jobDone'); scrollTop();
   };
@@ -260,6 +274,23 @@ export default function Share() {
                 <p style={{ margin: 0, fontSize: 13.5, color: '#41506B', lineHeight: 1.65 }}>
                   ทุกคนที่รับงานต้อง <b>ยืนยันตัวตนด้วย ThaID</b> · มี <b>ประวัติการทำงานและคะแนน</b> ติดตัว · ผู้ว่าจ้างและเทศบาลเห็นว่าใครเข้าพื้นที่ · <b>รายงานผู้ต้องสงสัยได้ทันที</b> เพื่อกันมิจฉาชีพแฝงตัวเข้าบ้านช่วงภัยพิบัติ
                 </p>
+              </div>
+
+              {/* เชื่อมต่อ LINE สำหรับผู้ว่าจ้าง — รับแจ้งเตือนเมื่อมีคนกดรับงาน */}
+              <div style={{ background: '#F0FBF4', border: '1px solid var(--safe-soft)', borderRadius: 14, padding: '14px 18px', marginBottom: 18, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 20 }}>🔔</span>
+                <div style={{ flex: 1, minWidth: 200 }}>
+                  <div style={{ fontWeight: 700, color: '#122A4A', fontSize: 14.5 }}>เป็นผู้ว่าจ้าง? เชื่อมต่อ LINE รับแจ้งเตือน</div>
+                  <div style={{ fontSize: 13, color: '#52607A' }}>พิมพ์เบอร์ที่ใช้ประกาศงาน แล้วกดเชื่อมต่อ จะได้รับแจ้งเตือนทันทีที่มีคนกดรับงาน</div>
+                </div>
+                <input type="tel" inputMode="numeric" value={posterPhone} onChange={(e) => setPosterPhone(e.target.value)} placeholder="เบอร์โทรผู้ว่าจ้าง" style={{ ...inputStyle, flex: '0 1 170px', minHeight: 44 }} />
+                <a
+                  href={PHONE_RE.test(posterPhone.trim()) ? lineLoginUrl(posterPhone.trim()) : undefined}
+                  onClick={(e) => { if (!PHONE_RE.test(posterPhone.trim())) { e.preventDefault(); showToast('กรอกเบอร์โทร 10 หลักให้ถูกต้องก่อน'); } }}
+                  style={{ background: PHONE_RE.test(posterPhone.trim()) ? '#06C755' : '#B8C2CE', color: '#fff', border: 'none', padding: '11px 18px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', minHeight: 44, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
+                >
+                  เชื่อมต่อ LINE
+                </a>
               </div>
 
               {/* งานรอให้คะแนน */}
