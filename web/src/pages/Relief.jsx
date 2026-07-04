@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { genRef, scrollTop, stepBars } from '../lib/helpers';
-import { insertReliefClaim } from '../lib/db';
+import { insertReliefClaim, notifyLine } from '../lib/db';
 import { ReliefIcon } from '../components/Icons';
 
 const DAMAGE_LIST = ['ตัวบ้าน/ที่อยู่', 'เครื่องใช้ไฟฟ้า', 'ยานพาหนะ', 'พื้นที่เกษตร'];
@@ -24,10 +24,10 @@ const initialReg = { name: '', id: '', phone: '', consent: false, err: '' };
 
 export default function Relief() {
   const navigate = useNavigate();
-  const { showToast } = useApp();
+  const { showToast, profile, updateProfile } = useApp();
 
   const [stage, setStage] = useState('thaid');
-  const [reg, setReg] = useState(initialReg);
+  const [reg, setReg] = useState({ ...initialReg, name: profile.name || '', id: profile.nationalId || '', phone: profile.phone || '' });
   const [idMethod, setIdMethod] = useState('');
 
   const [photos, setPhotos] = useState(0);
@@ -101,11 +101,14 @@ export default function Relief() {
 
   const openAppeal = () => { setAppealErr(''); setStage('appeal'); scrollTop(); };
   const backToResult = () => { setStage('result'); scrollTop(); };
+  const saveReliefProfile = () => updateProfile({ name: reg.name.trim() || profile.name, phone: reg.phone.trim() || profile.phone, nationalId: reg.id.replace(/\D/g, '') || profile.nationalId });
   const confirmRelief = () => {
     const newRef = genRef('RL', 6);
     setRef(newRef); setDoneMode('confirm'); setStage('done'); scrollTop();
     showToast('ยืนยันคำร้องเรียบร้อย');
     insertReliefClaim({ ref: newRef, name: reg.name.trim() || null, grade, water, mode: 'confirm', nationalId: reg.id.replace(/\D/g, '') || null, idMethod: idMethod === 'thaid' ? 'thaid' : 'form' });
+    saveReliefProfile();
+    notifyLine(reg.phone.trim(), `💰 รับคำร้องเยียวยาแล้ว | Yala Heal\nเลขอ้างอิง: ${newRef}\nสถานะ: รอเจ้าหน้าที่พิจารณา\nผลจะแจ้งกลับทางข้อความนี้`);
   };
   const submitAppeal = () => {
     if (!appealText.trim()) { setAppealErr('กรุณาระบุเหตุผลการอุทธรณ์'); return; }
@@ -113,6 +116,8 @@ export default function Relief() {
     setRef(newRef); setDoneMode('appeal'); setStage('done'); scrollTop();
     showToast('ส่งอุทธรณ์เรียบร้อย');
     insertReliefClaim({ ref: newRef, name: reg.name.trim() || null, grade, water, mode: 'appeal', nationalId: reg.id.replace(/\D/g, '') || null, idMethod: idMethod === 'thaid' ? 'thaid' : 'form' });
+    saveReliefProfile();
+    notifyLine(reg.phone.trim(), `📤 รับคำอุทธรณ์แล้ว | Yala Heal\nเลขอ้างอิง: ${newRef}\nสถานะ: รอพิจารณาอุทธรณ์`);
   };
 
   const toggleDamage = (t) => setDamage((d) => (d.includes(t) ? d.filter((x) => x !== t) : [...d, t]));

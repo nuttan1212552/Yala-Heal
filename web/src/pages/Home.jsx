@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { SosIcon, MindIcon, ShareIcon, ReliefIcon, DashboardIcon } from '../components/Icons';
+import ProfileCard from '../components/ProfileCard';
 
 const securityItems = [
   { title: 'AI แนะนำ ไม่ใช่ AI ตัดสิน', text: 'มนุษย์เป็นผู้อนุมัติสุดท้ายเสมอ ในทุกเรื่องที่กระทบสิทธิ์ประชาชน' },
@@ -59,6 +60,9 @@ export default function Home() {
       {/* FEATURE PICKER */}
       <section id="features" style={{ padding: 'clamp(52px,7vw,84px) 20px' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto' }}>
+          <div style={{ maxWidth: 760, margin: '0 auto 36px' }}>
+            <ProfileCard />
+          </div>
           <div className="reveal" style={{ textAlign: 'center', maxWidth: 680, margin: '0 auto 40px' }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primary)', marginBottom: 10 }}>เลือกบริการ</div>
             <h2 style={{ fontSize: 'clamp(26px,3.6vw,40px)', lineHeight: 1.16, marginBottom: 12 }}>4 บริการหลัก กดเข้าใช้งานได้เลย</h2>

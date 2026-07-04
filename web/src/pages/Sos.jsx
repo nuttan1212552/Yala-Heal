@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { PHONE_RE, genRef, scrollTop, stepBars } from '../lib/helpers';
-import { insertSosReport, requestOtp, verifyOtp, lineLoginUrl } from '../lib/db';
+import { insertSosReport, requestOtp, verifyOtp, lineLoginUrl, notifyLine } from '../lib/db';
 import { SosIcon } from '../components/Icons';
 
 const SOS_TYPES = ['น้ำท่วม/ต้องอพยพ', 'ผู้ป่วย/บาดเจ็บ', 'ติดค้าง/ขาดอาหาร', 'อื่น ๆ'];
@@ -25,10 +25,10 @@ const initialForm = { type: SOS_TYPES[0], people: 1, vuln: [], note: '' };
 
 export default function Sos() {
   const navigate = useNavigate();
-  const { showToast } = useApp();
+  const { showToast, profile, updateProfile } = useApp();
 
   const [stage, setStage] = useState('phone');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(profile.phone || '');
   const [phoneErr, setPhoneErr] = useState('');
   const [otp, setOtp] = useState('');
   const [otpErr, setOtpErr] = useState('');
@@ -66,7 +66,15 @@ export default function Sos() {
     const p = phone.trim();
     if (!PHONE_RE.test(p)) { setPhoneErr('กรุณากรอกเบอร์มือถือ 10 หลัก (ขึ้นต้นด้วย 0)'); return; }
     if (otpBusy) return;
-    setPhoneErr(''); setOtpBusy(true);
+    setPhoneErr('');
+    // เชื่อม LINE ไว้แล้ว = ยืนยันตัวตนแล้ว ข้าม OTP ได้เลย
+    if (profile.lineLinked && profile.phone === p) {
+      updateProfile({ phone: p });
+      showToast('ยืนยันตัวตนด้วย LINE แล้ว · ข้าม OTP');
+      setStage('form'); scrollTop();
+      return;
+    }
+    setOtpBusy(true);
     const r = await requestOtp(p);
     setOtpBusy(false);
     setOtpToken(r.token || '');
@@ -118,9 +126,18 @@ export default function Sos() {
     scrollTop();
     showToast('ส่งแจ้งเหตุเรียบร้อย ทีมกำลังดำเนินการ');
     insertSosReport({ ticket: newTicket, phone, type: form.type, people: form.people, vuln: form.vuln, note: form.note });
+    updateProfile({ phone });
+    notifyLine(phone, `🔴 รับแจ้งเหตุแล้ว | Yala Heal\nเลขอ้างอิง: ${newTicket}\nสถานะ: รับเรื่องแล้ว — ทีมกำลังประสานงาน\nติดตามสถานะได้ทางข้อความนี้`);
   };
 
-  const advanceTrack = () => setTrack((t) => Math.min(3, t + 1));
+  const advanceTrack = () => setTrack((t) => {
+    const n = Math.min(3, t + 1);
+    if (n !== t) {
+      const st = TRACK_LABELS[n];
+      notifyLine(phone, `🔔 อัปเดตสถานะเคส ${ticket}\n${n === 3 ? '✅ ' : ''}${st.label} — ${st.sub}`);
+    }
+    return n;
+  });
 
   const idx = stage === 'phone' ? 0 : stage === 'otp' ? 1 : stage === 'form' ? 2 : 3;
   const bars = stepBars(4, idx);

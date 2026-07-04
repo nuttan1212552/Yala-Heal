@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { PHONE_RE, genRef, scrollTop } from '../lib/helpers';
 import { ShareIcon } from '../components/Icons';
@@ -98,17 +98,8 @@ function TrustRow({ name, rating, jobs, verified }) {
 
 export default function Share() {
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
-  const { donations, addDonation, showToast } = useApp();
+  const { donations, addDonation, showToast, profile, updateProfile } = useApp();
   const [posterPhone, setPosterPhone] = useState('');
-
-  useEffect(() => {
-    const line = searchParams.get('line');
-    if (!line) return;
-    showToast(line === 'connected' ? 'เชื่อมต่อ LINE สำเร็จ! พร้อมรับแจ้งเตือนแล้ว' : 'เชื่อมต่อ LINE ไม่สำเร็จ ลองใหม่อีกครั้ง');
-    searchParams.delete('line');
-    setSearchParams(searchParams, { replace: true });
-  }, []);
 
   const [tab, setTab] = useState('all');
   const [view, setView] = useState('list');
@@ -139,7 +130,8 @@ export default function Share() {
 
   const openDetail = (id) => {
     const it = donations.find((d) => d.id === id);
-    setSel(it); setReqForm(emptyRequestForm); setView('detail'); scrollTop();
+    // เติมชื่อ/เบอร์จากโปรไฟล์ให้อัตโนมัติ (ถ้ามี)
+    setSel(it); setReqForm({ ...emptyRequestForm, name: profile.name || '', phone: profile.phone || '' }); setView('detail'); scrollTop();
   };
   const backToList = () => { setView('list'); scrollTop(); };
   const openNew = () => { setNewForm(emptyNewForm); setView('new'); scrollTop(); };
@@ -151,6 +143,7 @@ export default function Share() {
     }
     setSubmitting(true);
     setReqForm((f) => ({ ...f, err: '' }));
+    updateProfile({ name: reqForm.name.trim(), phone: reqForm.phone.trim() });
     const newRef = genRef('SH', 5);
     // บันทึกจริงลง Supabase แบบ fire-and-forget (ไม่บล็อก UI ถ้าเน็ตช้า)
     insertShareRequest({
@@ -183,7 +176,7 @@ export default function Share() {
   const startApply = (job) => {
     setSelJob(job);
     setApplyStage('verify');
-    setApplyForm({ name: '', nationalId: '', phone: '', idMethod: 'form', verified: false, verifying: false, err: '' });
+    setApplyForm({ name: profile.name || '', nationalId: profile.nationalId || '', phone: profile.phone || '', idMethod: 'form', verified: false, verifying: false, err: '' });
     setView('jobApply'); scrollTop();
   };
   // ThaID = ทางเลือกยืนยันแบบเร็ว (จำลอง) — เติมสถานะยืนยันให้เลย
@@ -212,6 +205,12 @@ export default function Share() {
       fullName: applyForm.name.trim() || null,
       nationalId: applyForm.nationalId.replace(/\D/g, '') || null,
       idMethod: applyForm.idMethod,
+    });
+    // จำข้อมูลไว้ในโปรไฟล์ ครั้งหน้าไม่ต้องกรอกซ้ำ
+    updateProfile({
+      name: applyForm.name.trim() || profile.name,
+      phone: applyForm.phone.trim(),
+      nationalId: applyForm.nationalId.replace(/\D/g, '') || profile.nationalId,
     });
     if (selJob.posterPhone) {
       const maskedPhone = applyForm.phone.trim().replace(/^(\d{3})\d{4}(\d{3})$/, '$1-xxxx-$2');

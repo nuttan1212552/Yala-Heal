@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { PHONE_RE, genRef } from '../lib/helpers';
-import { insertMindRequest } from '../lib/db';
+import { insertMindRequest, notifyLine } from '../lib/db';
 import { MindIcon } from '../components/Icons';
 
 const QS_SCALE = [
@@ -45,7 +45,7 @@ const card = { background: '#fff', border: '1px solid var(--line)', borderRadius
 const inputStyle = { width: '100%', padding: '13px 14px', border: '1.5px solid var(--line)', borderRadius: 10, fontSize: 16, color: '#122A4A', minHeight: 50 };
 
 export default function Mind() {
-  const { showToast } = useApp();
+  const { showToast, profile, updateProfile } = useApp();
 
   const [msgs, setMsgs] = useState([GREET, { who: 'bot', text: QS[0].q }]);
   const [step, setStep] = useState(0);
@@ -54,7 +54,7 @@ export default function Mind() {
   const [urgent, setUrgent] = useState(false);
 
   const [reqStage, setReqStage] = useState('');
-  const [reqPhone, setReqPhone] = useState('');
+  const [reqPhone, setReqPhone] = useState(profile.phone || '');
   const [reqErr, setReqErr] = useState('');
   const [reqPos, setReqPos] = useState(0);
   const [reqWait, setReqWait] = useState(0);
@@ -115,6 +115,8 @@ export default function Mind() {
     setReqStage('done'); setReqPos(pos); setReqWait(wait); setReqRef(newRef); setReqErr('');
     showToast(urgent ? 'จองคิวด่วนสำเร็จ ทีมจะติดต่อกลับโดยเร็ว' : 'จองคิวสำเร็จ');
     insertMindRequest({ ref: newRef, phone, urgent, position: pos });
+    updateProfile({ phone });
+    notifyLine(phone, `💚 จองคิวทีมดูแลใจแล้ว | Yala Heal\nเลขอ้างอิง: ${newRef}\n${urgent ? '⚡ คิวด่วน — ทีมจะติดต่อกลับโดยเร็ว' : `คิวที่ ${pos} · รอประมาณ ${wait} นาที`}\nหากเร่งด่วนโทร 1323 ได้ทันที`);
   };
 
   const options = (!done && QS[step]) ? QS[step].opts : [];
