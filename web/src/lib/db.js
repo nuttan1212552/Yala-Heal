@@ -97,8 +97,51 @@ export async function insertReliefClaim(claim) {
     mode: claim.mode,
     national_id: claim.nationalId || null,
     id_method: claim.idMethod || null,
+    // ---- ข้อมูลเต็มตามสเปกฟอร์มเยียวยา ----
+    prefix: claim.prefix || null,
+    dob: claim.dob || null,
+    phone: claim.phone || null,
+    residency: claim.residency || null,
+    address: claim.address || null,
+    province: claim.province || null,
+    district: claim.district || null,
+    subdistrict: claim.subdistrict || null,
+    postal_code: claim.postalCode || null,
+    lat: claim.lat ?? null,
+    lng: claim.lng ?? null,
+    payment_method: claim.paymentMethod || null,
+    bank_name: claim.bankName || null,
+    bank_account: claim.bankAccount || null,
+    flood_start: claim.floodStart || null,
+    flood_end: claim.floodEnd || null,
+    days_flooded: claim.daysFlooded ?? null,
+    damage_items: claim.damageItems || null,
+    photos_during: claim.photosDuring || null,
+    photos_after: claim.photosAfter || null,
+    photo_house_reg: claim.photoHouseReg || null,
+    photo_rental: claim.photoRental || null,
+    photo_critical: claim.photoCritical || null,
+    tracking_id: claim.trackingId || claim.ref || null,
+    note: claim.note || null,
+    pdpa_consent: Boolean(claim.pdpaConsent),
+    declaration_consent: Boolean(claim.declarationConsent),
   });
   if (error) console.error('insertReliefClaim error:', error.message);
+}
+
+// อัปโหลดรูปหลักฐานความเสียหายขึ้น Supabase Storage (bucket: relief-evidence)
+// คืน URL สาธารณะของไฟล์ ถ้าไม่มี Supabase (โหมดพรีวิว) คืน object URL ในเครื่องแทน
+export async function uploadReliefPhoto(file, folder = 'misc') {
+  if (!hasSupabase) {
+    try { return URL.createObjectURL(file); } catch { return null; }
+  }
+  const ext = (file.name && file.name.split('.').pop()) || 'jpg';
+  const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabase.storage.from('relief-evidence').upload(path, file, {
+    cacheControl: '3600', upsert: false, contentType: file.type || 'image/jpeg',
+  });
+  if (error) { console.error('uploadReliefPhoto error:', error.message); return null; }
+  return supabase.storage.from('relief-evidence').getPublicUrl(path).data.publicUrl;
 }
 
 // คำขอในศูนย์แบ่งปัน (ขอรับ / สมัครอาสา / แจ้งมีให้) — บันทึกจริง
