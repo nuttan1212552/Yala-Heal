@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { PHONE_RE, genRef, scrollTop } from '../lib/helpers';
 import { ShareIcon } from '../components/Icons';
-import { fetchJobs, insertJob, insertJobApplication, insertJobReport, insertJobRating, insertShareRequest, lineLoginUrl, notifyLine } from '../lib/db';
+import { fetchJobs, insertJob, insertJobApplication, insertJobReport, insertJobRating, insertShareRequest, notifyLine } from '../lib/db';
 
 const TAB_DEFS = [{ k: 'all', l: 'ทั้งหมด' }, { k: 'need', l: 'ต้องการ' }, { k: 'give', l: 'แบ่งปัน' }, { k: 'job', l: 'จ้างงาน/รับงาน' }];
 const NEW_TYPES = [{ k: 'need', l: 'ขอ/ต้องการ' }, { k: 'give', l: 'มี/แบ่งปัน' }, { k: 'gig', l: 'หาอาสา' }];
@@ -98,8 +98,8 @@ function TrustRow({ name, rating, jobs, verified }) {
 
 export default function Share() {
   const navigate = useNavigate();
-  const { donations, addDonation, showToast, profile, updateProfile } = useApp();
-  const [posterPhone, setPosterPhone] = useState('');
+  const { donations, addDonation, showToast, profile, updateProfile, connectLineForProfile } = useApp();
+  const [posterPhone, setPosterPhone] = useState(profile.phone || '');
 
   const [tab, setTab] = useState('all');
   const [view, setView] = useState('list');
@@ -339,16 +339,24 @@ export default function Share() {
                 <span style={{ fontSize: 20 }}>🔔</span>
                 <div style={{ flex: 1, minWidth: 200 }}>
                   <div style={{ fontWeight: 700, color: '#122A4A', fontSize: 14.5 }}>เป็นผู้ว่าจ้าง? เชื่อมต่อ LINE รับแจ้งเตือน</div>
-                  <div style={{ fontSize: 13, color: '#52607A' }}>พิมพ์เบอร์ที่ใช้ประกาศงาน แล้วกดเชื่อมต่อ จะได้รับแจ้งเตือนทันทีที่มีคนกดรับงาน</div>
+                  <div style={{ fontSize: 13, color: '#52607A' }}>
+                    {profile.lineLinked ? `เชื่อมกับเบอร์ ${profile.phone} แล้ว — ไม่ต้องกรอกซ้ำ` : 'พิมพ์เบอร์ที่ใช้ประกาศงาน แล้วกดเชื่อมต่อ จะได้รับแจ้งเตือนทันทีที่มีคนกดรับงาน'}
+                  </div>
                 </div>
-                <input type="tel" inputMode="numeric" value={posterPhone} onChange={(e) => setPosterPhone(e.target.value)} placeholder="เบอร์โทรผู้ว่าจ้าง" style={{ ...inputStyle, flex: '0 1 170px', minHeight: 44 }} />
-                <a
-                  href={PHONE_RE.test(posterPhone.trim()) ? lineLoginUrl(posterPhone.trim()) : undefined}
-                  onClick={(e) => { if (!PHONE_RE.test(posterPhone.trim())) { e.preventDefault(); showToast('กรอกเบอร์โทร 10 หลักให้ถูกต้องก่อน'); } }}
-                  style={{ background: PHONE_RE.test(posterPhone.trim()) ? '#06C755' : '#B8C2CE', color: '#fff', border: 'none', padding: '11px 18px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', minHeight: 44, textDecoration: 'none', display: 'inline-flex', alignItems: 'center' }}
-                >
-                  เชื่อมต่อ LINE
-                </a>
+                {profile.lineLinked ? (
+                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: 'rgba(6,199,85,.12)', color: '#06C755', fontWeight: 700, fontSize: 13, padding: '9px 15px', borderRadius: 10 }}>🔔 รับแจ้งเตือนแล้ว</span>
+                ) : (
+                  <>
+                    <input type="tel" inputMode="numeric" value={posterPhone} onChange={(e) => setPosterPhone(e.target.value)} placeholder="เบอร์โทรผู้ว่าจ้าง" style={{ ...inputStyle, flex: '0 1 170px', minHeight: 44 }} />
+                    <button
+                      type="button"
+                      onClick={() => { if (!PHONE_RE.test(posterPhone.trim())) { showToast('กรอกเบอร์โทร 10 หลักให้ถูกต้องก่อน'); return; } connectLineForProfile(posterPhone.trim()); }}
+                      style={{ background: PHONE_RE.test(posterPhone.trim()) ? '#06C755' : '#B8C2CE', color: '#fff', border: 'none', padding: '11px 18px', borderRadius: 10, fontWeight: 700, fontSize: 14, cursor: 'pointer', minHeight: 44 }}
+                    >
+                      เชื่อมต่อ LINE
+                    </button>
+                  </>
+                )}
               </div>
 
               {/* งานรอให้คะแนน */}
