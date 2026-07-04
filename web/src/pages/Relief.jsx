@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { genRef, scrollTop, stepBars } from '../lib/helpers';
@@ -64,16 +64,21 @@ const STEP_LABELS = ['ตัวตน', 'ที่พัก', 'ที่ตั�
 // ====== อัปโหลดรูปเป็นกลุ่ม (อัปจริงขึ้น Supabase Storage) ======
 function PhotoGroup({ title, hint, folder, urls, onAdd, onRemove, max = 6 }) {
   const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
+  const camRef = useRef(null);
   const onPick = async (e) => {
     const files = Array.from(e.target.files || []);
-    e.target.value = '';
+    e.target.value = '';                 // เคลียร์ค่าเพื่อให้เปิด/เลือกซ้ำได้ทุกครั้ง
     if (!files.length) return;
     setBusy(true);
-    for (const file of files.slice(0, max - urls.length)) {
-      const url = await uploadReliefPhoto(file, folder);
-      if (url) onAdd(url);
+    try {
+      for (const file of files.slice(0, max - urls.length)) {
+        const url = await uploadReliefPhoto(file, folder);
+        if (url) onAdd(url);
+      }
+    } finally {
+      setBusy(false);                    // กันปุ่มค้าง disabled ถ้าอัปโหลดพลาด
     }
-    setBusy(false);
   };
   return (
     <div style={{ marginBottom: 18 }}>
@@ -91,14 +96,14 @@ function PhotoGroup({ title, hint, folder, urls, onAdd, onRemove, max = 6 }) {
       )}
       {urls.length < max && (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <label style={pickBtn(busy)}>
+          <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} style={pickBtn(busy)}>
             {busy ? '⏳ กำลังอัปโหลด…' : '📁 ใส่ภาพจากเครื่อง'}
-            <input type="file" accept="image/*" multiple onChange={onPick} disabled={busy} style={{ display: 'none' }} />
-          </label>
-          <label style={pickBtn(busy)}>
+          </button>
+          <button type="button" onClick={() => camRef.current?.click()} disabled={busy} style={pickBtn(busy)}>
             📷 ถ่ายรูป
-            <input type="file" accept="image/*" capture="environment" multiple onChange={onPick} disabled={busy} style={{ display: 'none' }} />
-          </label>
+          </button>
+          <input ref={fileRef} type="file" accept="image/*" multiple onChange={onPick} style={{ display: 'none' }} />
+          <input ref={camRef} type="file" accept="image/*" capture="environment" multiple onChange={onPick} style={{ display: 'none' }} />
         </div>
       )}
     </div>
@@ -106,16 +111,21 @@ function PhotoGroup({ title, hint, folder, urls, onAdd, onRemove, max = 6 }) {
 }
 
 // อัปโหลดรูปเดี่ยว (เอกสาร เช่น บัตร ปชช. / ทะเบียนบ้าน / สัญญาเช่า)
-function SinglePhoto({ url, onSet, folder, placeholder }) {
+function SinglePhoto({ url, onSet, folder }) {
   const [busy, setBusy] = useState(false);
+  const fileRef = useRef(null);
+  const camRef = useRef(null);
   const onPick = async (e) => {
     const file = (e.target.files || [])[0];
     e.target.value = '';
     if (!file) return;
     setBusy(true);
-    const u = await uploadReliefPhoto(file, folder);
-    setBusy(false);
-    if (u) onSet(u);
+    try {
+      const u = await uploadReliefPhoto(file, folder);
+      if (u) onSet(u);
+    } finally {
+      setBusy(false);
+    }
   };
   if (url) {
     return (
@@ -127,14 +137,14 @@ function SinglePhoto({ url, onSet, folder, placeholder }) {
   }
   return (
     <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-      <label style={pickBtn(busy)}>
+      <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} style={pickBtn(busy)}>
         {busy ? '⏳ กำลังอัปโหลด…' : '📁 ใส่ไฟล์'}
-        <input type="file" accept="image/*" onChange={onPick} disabled={busy} style={{ display: 'none' }} />
-      </label>
-      <label style={pickBtn(busy)}>
+      </button>
+      <button type="button" onClick={() => camRef.current?.click()} disabled={busy} style={pickBtn(busy)}>
         📷 ถ่ายรูป
-        <input type="file" accept="image/*" capture="environment" onChange={onPick} disabled={busy} style={{ display: 'none' }} />
-      </label>
+      </button>
+      <input ref={fileRef} type="file" accept="image/*" onChange={onPick} style={{ display: 'none' }} />
+      <input ref={camRef} type="file" accept="image/*" capture="environment" onChange={onPick} style={{ display: 'none' }} />
     </div>
   );
 }
