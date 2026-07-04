@@ -130,17 +130,17 @@ export async function insertReliefClaim(claim) {
 }
 
 // อัปโหลดรูปหลักฐานความเสียหายขึ้น Supabase Storage (bucket: relief-evidence)
-// คืน URL สาธารณะของไฟล์ ถ้าไม่มี Supabase (โหมดพรีวิว) คืน object URL ในเครื่องแทน
+// - ไม่มี Supabase → คืน null (ฝั่ง UI ใช้พรีวิวในเครื่องแทน)
+// - อัปโหลดพลาด → โยน error พร้อมข้อความ (ฝั่ง UI เอาไปแสดงให้ผู้ใช้เห็นได้)
 export async function uploadReliefPhoto(file, folder = 'misc') {
-  if (!hasSupabase) {
-    try { return URL.createObjectURL(file); } catch { return null; }
-  }
-  const ext = (file.name && file.name.split('.').pop()) || 'jpg';
+  if (!hasSupabase) return null;
+  const rawExt = (file.name && file.name.split('.').pop()) || 'jpg';
+  const ext = rawExt.toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
   const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error } = await supabase.storage.from('relief-evidence').upload(path, file, {
     cacheControl: '3600', upsert: false, contentType: file.type || 'image/jpeg',
   });
-  if (error) { console.error('uploadReliefPhoto error:', error.message); return null; }
+  if (error) { console.error('uploadReliefPhoto error:', error.message); throw new Error(error.message || 'อัปโหลดไม่สำเร็จ'); }
   return supabase.storage.from('relief-evidence').getPublicUrl(path).data.publicUrl;
 }
 

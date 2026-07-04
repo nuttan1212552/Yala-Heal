@@ -61,25 +61,31 @@ const pickBtn = (busy) => ({ display: 'inline-flex', alignItems: 'center', gap: 
 const STEPS = ['identity', 'residency', 'location', 'payment', 'disaster', 'photos', 'review'];
 const STEP_LABELS = ['ตัวตน', 'ที่พัก', 'ที่ตั้ง', 'รับเงิน', 'เหตุภัย', 'รูปภาพ', 'ตรวจสอบ'];
 
-// ====== อัปโหลดรูปเป็นกลุ่ม (อัปจริงขึ้น Supabase Storage) ======
-function PhotoGroup({ title, hint, folder, urls, onAdd, onRemove, max = 6 }) {
-  const [busy, setBusy] = useState(false);
+// ====== อัปโหลดรูปเป็นกลุ่ม (โชว์พรีวิวทันที แล้วอัปขึ้น Supabase Storage เบื้องหลัง) ======
+function PhotoGroup({ title, hint, folder, urls, onAdd, onReplace, onRemove, max = 6 }) {
+  const [status, setStatus] = useState('');   // ตัวเชคสถานะ/ข้อความ error
   const fileRef = useRef(null);
   const camRef = useRef(null);
+
   const onPick = async (e) => {
     const files = Array.from(e.target.files || []);
-    e.target.value = '';                 // เคลียร์ค่าเพื่อให้เปิด/เลือกซ้ำได้ทุกครั้ง
-    if (!files.length) return;
-    setBusy(true);
-    try {
-      for (const file of files.slice(0, max - urls.length)) {
-        const url = await uploadReliefPhoto(file, folder);
-        if (url) onAdd(url);
+    e.target.value = '';                       // เคลียร์ค่าเพื่อให้เปิด/เลือกซ้ำได้ทุกครั้ง
+    if (!files.length) { setStatus('ยังไม่ได้เลือกรูป — กดปุ่มเพื่อเลือกใหม่ได้เลย'); return; }
+    const chosen = files.slice(0, Math.max(0, max - urls.length));
+    for (const file of chosen) {
+      const localUrl = URL.createObjectURL(file);
+      onAdd(localUrl);                          // โชว์รูปทันที (พรีวิวในเครื่อง)
+      setStatus('กำลังอัปโหลด ' + (file.name || 'รูป') + '…');
+      try {
+        const remoteUrl = await uploadReliefPhoto(file, folder);
+        if (remoteUrl) onReplace(localUrl, remoteUrl);   // แทนที่ด้วย URL จริงบนเซิร์ฟเวอร์
+        setStatus('');
+      } catch (err) {
+        setStatus('⚠ อัปโหลดขึ้นเซิร์ฟเวอร์ไม่สำเร็จ: ' + (err?.message || 'ไม่ทราบสาเหตุ') + ' (รูปยังแสดงอยู่)');
       }
-    } finally {
-      setBusy(false);                    // กันปุ่มค้าง disabled ถ้าอัปโหลดพลาด
     }
   };
+
   return (
     <div style={{ marginBottom: 18 }}>
       <div style={{ fontSize: 14.5, fontWeight: 700, color: '#122A4A', marginBottom: 3 }}>{title}</div>
@@ -96,55 +102,53 @@ function PhotoGroup({ title, hint, folder, urls, onAdd, onRemove, max = 6 }) {
       )}
       {urls.length < max && (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} style={pickBtn(busy)}>
-            {busy ? '⏳ กำลังอัปโหลด…' : '📁 ใส่ภาพจากเครื่อง'}
-          </button>
-          <button type="button" onClick={() => camRef.current?.click()} disabled={busy} style={pickBtn(busy)}>
-            📷 ถ่ายรูป
-          </button>
+          <button type="button" onClick={() => fileRef.current?.click()} style={pickBtn(false)}>📁 ใส่ภาพจากเครื่อง</button>
+          <button type="button" onClick={() => camRef.current?.click()} style={pickBtn(false)}>📷 ถ่ายรูป</button>
           <input ref={fileRef} type="file" accept="image/*" multiple onChange={onPick} style={{ display: 'none' }} />
           <input ref={camRef} type="file" accept="image/*" capture="environment" multiple onChange={onPick} style={{ display: 'none' }} />
         </div>
       )}
+      {status && <div style={{ fontSize: 12.5, color: status.startsWith('⚠') ? 'var(--danger)' : '#52607A', marginTop: 8, lineHeight: 1.5 }}>{status}</div>}
     </div>
   );
 }
 
 // อัปโหลดรูปเดี่ยว (เอกสาร เช่น บัตร ปชช. / ทะเบียนบ้าน / สัญญาเช่า)
 function SinglePhoto({ url, onSet, folder }) {
-  const [busy, setBusy] = useState(false);
+  const [status, setStatus] = useState('');
   const fileRef = useRef(null);
   const camRef = useRef(null);
   const onPick = async (e) => {
     const file = (e.target.files || [])[0];
     e.target.value = '';
-    if (!file) return;
-    setBusy(true);
+    if (!file) { setStatus('ยังไม่ได้เลือกไฟล์ — กดปุ่มเพื่อเลือกใหม่ได้เลย'); return; }
+    const localUrl = URL.createObjectURL(file);
+    onSet(localUrl);                            // โชว์ทันที
+    setStatus('กำลังอัปโหลด…');
     try {
-      const u = await uploadReliefPhoto(file, folder);
-      if (u) onSet(u);
-    } finally {
-      setBusy(false);
+      const remoteUrl = await uploadReliefPhoto(file, folder);
+      if (remoteUrl) onSet(remoteUrl);
+      setStatus('');
+    } catch (err) {
+      setStatus('⚠ อัปโหลดไม่สำเร็จ: ' + (err?.message || 'ไม่ทราบสาเหตุ') + ' (ไฟล์ยังแสดงอยู่)');
     }
   };
-  if (url) {
-    return (
-      <div style={{ position: 'relative', width: 120, height: 88, borderRadius: 11, overflow: 'hidden', border: '1px solid var(--line)' }}>
-        <img src={url} alt="เอกสาร" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-        <button type="button" onClick={() => onSet('')} aria-label="ลบ" style={{ position: 'absolute', top: 3, right: 3, width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'rgba(18,42,74,.82)', color: '#fff', fontSize: 13, cursor: 'pointer' }}>×</button>
-      </div>
-    );
-  }
   return (
-    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-      <button type="button" onClick={() => fileRef.current?.click()} disabled={busy} style={pickBtn(busy)}>
-        {busy ? '⏳ กำลังอัปโหลด…' : '📁 ใส่ไฟล์'}
-      </button>
-      <button type="button" onClick={() => camRef.current?.click()} disabled={busy} style={pickBtn(busy)}>
-        📷 ถ่ายรูป
-      </button>
-      <input ref={fileRef} type="file" accept="image/*" onChange={onPick} style={{ display: 'none' }} />
-      <input ref={camRef} type="file" accept="image/*" capture="environment" onChange={onPick} style={{ display: 'none' }} />
+    <div>
+      {url ? (
+        <div style={{ position: 'relative', width: 120, height: 88, borderRadius: 11, overflow: 'hidden', border: '1px solid var(--line)' }}>
+          <img src={url} alt="เอกสาร" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <button type="button" onClick={() => { onSet(''); setStatus(''); }} aria-label="ลบ" style={{ position: 'absolute', top: 3, right: 3, width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'rgba(18,42,74,.82)', color: '#fff', fontSize: 13, cursor: 'pointer' }}>×</button>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button type="button" onClick={() => fileRef.current?.click()} style={pickBtn(false)}>📁 ใส่ไฟล์</button>
+          <button type="button" onClick={() => camRef.current?.click()} style={pickBtn(false)}>📷 ถ่ายรูป</button>
+          <input ref={fileRef} type="file" accept="image/*" onChange={onPick} style={{ display: 'none' }} />
+          <input ref={camRef} type="file" accept="image/*" capture="environment" onChange={onPick} style={{ display: 'none' }} />
+        </div>
+      )}
+      {status && <div style={{ fontSize: 12.5, color: status.startsWith('⚠') ? 'var(--danger)' : '#52607A', marginTop: 8, lineHeight: 1.5 }}>{status}</div>}
     </div>
   );
 }
@@ -561,6 +565,7 @@ export default function Relief() {
             folder="during"
             urls={f.photosDuring}
             onAdd={(u) => setF((p) => ({ ...p, photosDuring: [...p.photosDuring, u] }))}
+            onReplace={(o, n) => setF((p) => ({ ...p, photosDuring: p.photosDuring.map((x) => (x === o ? n : x)) }))}
             onRemove={(i) => setF((p) => ({ ...p, photosDuring: p.photosDuring.filter((_, x) => x !== i) }))}
           />
 
@@ -570,6 +575,7 @@ export default function Relief() {
             folder="after"
             urls={f.photosAfter}
             onAdd={(u) => setF((p) => ({ ...p, photosAfter: [...p.photosAfter, u] }))}
+            onReplace={(o, n) => setF((p) => ({ ...p, photosAfter: p.photosAfter.map((x) => (x === o ? n : x)) }))}
             onRemove={(i) => setF((p) => ({ ...p, photosAfter: p.photosAfter.filter((_, x) => x !== i) }))}
           />
 
