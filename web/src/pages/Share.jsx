@@ -4,6 +4,7 @@ import { useApp } from '../context/AppContext';
 import { PHONE_RE, genRef, scrollTop } from '../lib/helpers';
 import { ShareIcon } from '../components/Icons';
 import { fetchJobs, insertJob, insertJobApplication, insertJobReport, insertJobRating, insertShareRequest, notifyLine } from '../lib/db';
+import { notifyCard, row, SITE } from '../lib/flex';
 
 const TAB_DEFS = [{ k: 'all', l: 'ทั้งหมด' }, { k: 'need', l: 'ต้องการ' }, { k: 'give', l: 'แบ่งปัน' }, { k: 'job', l: 'จ้างงาน/รับงาน' }];
 const NEW_TYPES = [{ k: 'need', l: 'ขอ/ต้องการ' }, { k: 'give', l: 'มี/แบ่งปัน' }, { k: 'gig', l: 'หาอาสา' }];
@@ -215,7 +216,21 @@ export default function Share() {
     if (selJob.posterPhone) {
       const maskedPhone = applyForm.phone.trim().replace(/^(\d{3})\d{4}(\d{3})$/, '$1-xxxx-$2');
       const who = applyForm.name.trim() ? applyForm.name.trim() : maskedPhone;
-      notifyLine(selJob.posterPhone, `🟢 มีคนกดรับงาน "${selJob.title}" แล้ว!\nผู้สมัคร: ${who} (${maskedPhone}) · ยืนยันตัวตนแล้ว\nดูรายละเอียดที่เว็บ Yala Heal`);
+      const alt = `🟢 มีคนกดรับงาน "${selJob.title}" · ${who} (${maskedPhone})`;
+      const flex = notifyCard({
+        accent: '#0E8A5F',
+        badge: '🟢 มีคนกดรับงานแล้ว',
+        title: selJob.title,
+        rows: [
+          row('ผู้รับงาน', who),
+          row('เบอร์ติดต่อ', maskedPhone),
+          row('พื้นที่', selJob.zone || '-'),
+          row('ยืนยันตัวตน', 'ThaID ✓', '#0E8A5F'),
+        ],
+        buttonLabel: 'ดูรายละเอียดในเว็บ',
+        buttonUri: `${SITE}/share?openExternalBrowser=1`,
+      });
+      notifyLine(selJob.posterPhone, alt, flex);
     }
     setRef(genRef('JOB', 5));
     setView('jobDone'); scrollTop();

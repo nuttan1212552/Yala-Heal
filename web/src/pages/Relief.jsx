@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { genRef, scrollTop, stepBars } from '../lib/helpers';
 import { insertReliefClaim, uploadReliefPhoto, notifyLine } from '../lib/db';
+import { notifyCard, row, SITE } from '../lib/flex';
 import { ReliefIcon } from '../components/Icons';
 import MapPicker from '../components/MapPicker';
 
@@ -281,7 +282,19 @@ export default function Relief() {
       pdpaConsent: f.pdpa, declarationConsent: f.declaration,
     });
     saveProfile();
-    notifyLine(f.phone.trim(), `💰 รับคำร้องเยียวยาแล้ว | Yala Heal\nเลขอ้างอิง: ${newRef}\nสถานะ: ยื่นคำร้องแล้ว — รอเจ้าหน้าที่ตรวจสอบเอกสาร\nติดตามสถานะได้ทางข้อความนี้`);
+    notifyLine(f.phone.trim(), `💰 รับคำร้องเยียวยาแล้ว · เลขที่ ${newRef}`, notifyCard({
+      accent: '#B36B00',
+      badge: '💰 รับคำร้องเยียวยาแล้ว',
+      bigLabel: 'เลขที่คำร้อง (Tracking ID)',
+      bigValue: newRef,
+      rows: [
+        row('ระดับความเสียหาย', GRADE_INFO[g].title),
+        row('สถานะ', 'รอเจ้าหน้าที่ตรวจสอบ', '#B36B00'),
+        row('พื้นที่', `ต.${f.subdistrict} อ.${f.district}`),
+      ],
+      buttonLabel: 'ติดตามสถานะ',
+      buttonUri: `${SITE}/relief?openExternalBrowser=1`,
+    }));
     setSubmitting(false);
     setGrade(g); setRef(newRef); setDoneMode('confirm'); setStage('done'); scrollTop();
     showToast('ยื่นคำร้องเรียบร้อย');
@@ -297,7 +310,15 @@ export default function Relief() {
       name: f.name.trim(), nationalId: f.nationalId.replace(/\D/g, ''), idMethod: f.idMethod, phone: f.phone.trim(),
       district: f.district, subdistrict: f.subdistrict, note: appealText.trim(),
     });
-    notifyLine(f.phone.trim(), `📤 รับคำอุทธรณ์แล้ว | Yala Heal\nเลขอ้างอิง: ${newRef}\nสถานะ: รอพิจารณาอุทธรณ์`);
+    notifyLine(f.phone.trim(), `📤 รับคำอุทธรณ์แล้ว · เลขที่ ${newRef}`, notifyCard({
+      accent: '#5B54C9',
+      badge: '📤 รับคำอุทธรณ์แล้ว',
+      bigLabel: 'เลขที่อุทธรณ์',
+      bigValue: newRef,
+      rows: [row('สถานะ', 'รอพิจารณาอุทธรณ์', '#5B54C9')],
+      buttonLabel: 'ติดตามสถานะ',
+      buttonUri: `${SITE}/relief?openExternalBrowser=1`,
+    }));
     setSubmitting(false);
     setRef(newRef); setDoneMode('appeal'); setStage('done'); scrollTop();
     showToast('ส่งอุทธรณ์เรียบร้อย');

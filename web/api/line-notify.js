@@ -9,11 +9,16 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { phone, message } = req.body || {};
+    const { phone, message, flex } = req.body || {};
     if (!phone || !message) {
       res.status(400).json({ ok: false, reason: 'missing_fields' });
       return;
     }
+
+    // ถ้ามี flex → ส่งเป็นการ์ด Flex (altText ตัดไม่เกิน 400 ตัวอักษรตามข้อกำหนด LINE)
+    const lineMessage = flex
+      ? { type: 'flex', altText: String(message).slice(0, 400), contents: flex }
+      : { type: 'text', text: message };
 
     const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY);
     const { data } = await supabase
@@ -33,7 +38,7 @@ export default async function handler(req, res) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}`,
       },
-      body: JSON.stringify({ to: data.line_user_id, messages: [{ type: 'text', text: message }] }),
+      body: JSON.stringify({ to: data.line_user_id, messages: [lineMessage] }),
     });
 
     if (!lineRes.ok) {

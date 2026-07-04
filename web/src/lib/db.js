@@ -344,12 +344,13 @@ export function saveProfileServer(profile) {
 }
 
 // ยิงแจ้งเตือนแบบ fire-and-forget — ไม่เชื่อม LINE ไว้ก็แค่เงียบๆ ไม่กระทบ flow หลัก
-export function notifyLine(phone, message) {
+// flex (ถ้ามี) = LINE Flex bubble; message ใช้เป็นข้อความสำรอง (altText / เครื่องที่ render flex ไม่ได้)
+export function notifyLine(phone, message, flex) {
   if (!phone || !message) return;
   fetch('/api/line-notify', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ phone, message }),
+    body: JSON.stringify({ phone, message, flex }),
   }).catch(() => {});
 }
 
