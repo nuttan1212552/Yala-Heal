@@ -22,7 +22,6 @@ export default function Footer() {
           <div>
             <div style={{ fontSize: 13.5, fontWeight: 700, color: '#122A4A', marginBottom: 14 }}>บริการ</div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10, fontSize: 14.5 }}>
-              <Link to="/sos" style={footerLinkStyle}>แจ้งเหตุฉุกเฉิน</Link>
               <Link to="/mind-talk" style={footerLinkStyle}>คุยกับใจ</Link>
               <Link to="/share" style={footerLinkStyle}>ศูนย์แบ่งปัน</Link>
               <Link to="/relief" style={footerLinkStyle}>เงินเยียวยา</Link>

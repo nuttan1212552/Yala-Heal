@@ -55,6 +55,7 @@ const primaryBtn = { width: '100%', background: 'var(--primary)', color: '#fff',
 const ghostBtn = { background: '#fff', border: '1.5px solid var(--line)', color: '#26344C', padding: '13px 20px', borderRadius: 11, fontWeight: 600, fontSize: 15.5, cursor: 'pointer', minHeight: 50 };
 const optBtn = (on) => ({ textAlign: 'left', cursor: 'pointer', padding: '13px 14px', borderRadius: 11, fontSize: 15, fontWeight: 600, minHeight: 50, fontFamily: 'inherit', border: on ? '1.5px solid var(--primary)' : '1.5px solid var(--line)', background: on ? 'var(--primary-soft)' : '#fff', color: on ? 'var(--primary)' : '#33415A' });
 const pillBtn = (on) => ({ cursor: 'pointer', padding: '11px 15px', borderRadius: 100, fontSize: 14.5, fontWeight: 600, minHeight: 44, fontFamily: 'inherit', border: on ? '1.5px solid var(--primary)' : '1.5px solid var(--line)', background: on ? 'var(--primary-soft)' : '#fff', color: on ? 'var(--primary)' : '#33415A' });
+const pickBtn = (busy) => ({ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 16px', border: '1.5px solid var(--primary)', borderRadius: 10, background: '#fff', color: 'var(--primary)', fontWeight: 700, fontSize: 14.5, cursor: busy ? 'wait' : 'pointer', minHeight: 46 });
 
 // ลำดับสเตปของฟอร์ม
 const STEPS = ['identity', 'residency', 'location', 'payment', 'disaster', 'photos', 'review'];
@@ -78,20 +79,28 @@ function PhotoGroup({ title, hint, folder, urls, onAdd, onRemove, max = 6 }) {
     <div style={{ marginBottom: 18 }}>
       <div style={{ fontSize: 14.5, fontWeight: 700, color: '#122A4A', marginBottom: 3 }}>{title}</div>
       {hint && <div style={{ fontSize: 12.5, color: '#52607A', marginBottom: 10, lineHeight: 1.5 }}>{hint}</div>}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-        {urls.map((u, i) => (
-          <div key={u} style={{ position: 'relative', width: 92, height: 92, borderRadius: 11, overflow: 'hidden', border: '1px solid var(--line)' }}>
-            <img src={u} alt={`หลักฐาน ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            <button type="button" onClick={() => onRemove(i)} aria-label="ลบรูป" style={{ position: 'absolute', top: 3, right: 3, width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'rgba(18,42,74,.82)', color: '#fff', fontSize: 13, cursor: 'pointer', lineHeight: 1 }}>×</button>
-          </div>
-        ))}
-        {urls.length < max && (
-          <label style={{ width: 92, height: 92, borderRadius: 11, border: '1.5px dashed #C3CDDA', background: '#F4F6F9', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', cursor: busy ? 'wait' : 'pointer', color: 'var(--primary)', fontSize: 13, fontWeight: 600, gap: 3 }}>
-            {busy ? '⏳' : <><span style={{ fontSize: 22 }}>＋</span>เพิ่มรูป</>}
+      {urls.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginBottom: 10 }}>
+          {urls.map((u, i) => (
+            <div key={u} style={{ position: 'relative', width: 92, height: 92, borderRadius: 11, overflow: 'hidden', border: '1px solid var(--line)' }}>
+              <img src={u} alt={`หลักฐาน ${i + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              <button type="button" onClick={() => onRemove(i)} aria-label="ลบรูป" style={{ position: 'absolute', top: 3, right: 3, width: 22, height: 22, borderRadius: '50%', border: 'none', background: 'rgba(18,42,74,.82)', color: '#fff', fontSize: 13, cursor: 'pointer', lineHeight: 1 }}>×</button>
+            </div>
+          ))}
+        </div>
+      )}
+      {urls.length < max && (
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <label style={pickBtn(busy)}>
+            {busy ? '⏳ กำลังอัปโหลด…' : '📁 ใส่ภาพจากเครื่อง'}
+            <input type="file" accept="image/*" multiple onChange={onPick} disabled={busy} style={{ display: 'none' }} />
+          </label>
+          <label style={pickBtn(busy)}>
+            📷 ถ่ายรูป
             <input type="file" accept="image/*" capture="environment" multiple onChange={onPick} disabled={busy} style={{ display: 'none' }} />
           </label>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -117,10 +126,16 @@ function SinglePhoto({ url, onSet, folder, placeholder }) {
     );
   }
   return (
-    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '11px 16px', border: '1.5px solid var(--primary)', borderRadius: 10, background: '#fff', color: 'var(--primary)', fontWeight: 700, fontSize: 14.5, cursor: busy ? 'wait' : 'pointer', minHeight: 46 }}>
-      {busy ? '⏳ กำลังอัปโหลด…' : `📷 ${placeholder}`}
-      <input type="file" accept="image/*" capture="environment" onChange={onPick} disabled={busy} style={{ display: 'none' }} />
-    </label>
+    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+      <label style={pickBtn(busy)}>
+        {busy ? '⏳ กำลังอัปโหลด…' : '📁 ใส่ไฟล์'}
+        <input type="file" accept="image/*" onChange={onPick} disabled={busy} style={{ display: 'none' }} />
+      </label>
+      <label style={pickBtn(busy)}>
+        📷 ถ่ายรูป
+        <input type="file" accept="image/*" capture="environment" onChange={onPick} disabled={busy} style={{ display: 'none' }} />
+      </label>
+    </div>
   );
 }
 
@@ -510,8 +525,25 @@ export default function Relief() {
       {/* ===== STEP 6: อัปโหลดหลักฐาน (แยกช่วง/หลังน้ำท่วม) ===== */}
       {stage === 'photos' && (
         <div style={card}>
-          <h2 style={{ fontSize: 21, marginBottom: 6 }}>รูปถ่ายหลักฐานความเสียหาย</h2>
-          <p style={{ color: '#52607A', fontSize: 14, margin: '0 0 18px', lineHeight: 1.6 }}>ระบบฝัง metadata เวลา-พิกัด และตรวจสอบภาพซ้ำอัตโนมัติ เพื่อป้องกันการใช้ภาพเก่า/ภาพปลอม · เปิด GPS ในกล้องขณะถ่ายจะน่าเชื่อถือที่สุด</p>
+          <h2 style={{ fontSize: 21, marginBottom: 12 }}>รูปถ่ายหลักฐานความเสียหาย</h2>
+
+          <div style={{ background: 'linear-gradient(180deg,#fff,#F4FBF8)', border: '1px solid var(--safe-soft)', borderRadius: 14, padding: '16px 18px', marginBottom: 18 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+              <span style={{ fontSize: 20 }}>📸</span>
+              <b style={{ color: '#122A4A', fontSize: 15.5 }}>คำแนะนำการถ่ายภาพให้ผ่านการตรวจ</b>
+            </div>
+            <ul style={{ margin: 0, paddingLeft: 20, fontSize: 13.5, color: '#41506B', lineHeight: 1.75 }}>
+              <li><b>แสงสว่างเพียงพอ</b> — ถ่ายกลางวันหรือเปิดไฟให้เห็นรายละเอียดชัด ไม่ถ่ายย้อนแสงหรือในที่มืด</li>
+              <li><b>เปิดตำแหน่ง (GPS)</b> ในกล้องก่อนถ่าย เพื่อฝังพิกัด-เวลาลงในรูป (ระบบใช้ตรวจสอบ)</li>
+              <li><b>รูปหน้าบ้าน</b> — ให้เห็นโครงสร้างบ้าน + คราบรอยน้ำ + ป้ายบ้านเลขที่ ในเฟรมเดียวกัน</li>
+              <li><b>รูปในบ้าน</b> — จุดที่น้ำท่วมถึง คราบโคลน เฟอร์นิเจอร์/เครื่องใช้ไฟฟ้าที่เสียหาย</li>
+              <li><b>จุดวิกฤต</b> — ถ่ายมุมกว้างให้เห็นรอยร้าวลึกหรือการพังทลายของโครงสร้าง</li>
+            </ul>
+            <div style={{ marginTop: 10, fontSize: 12.5, color: '#33415A', display: 'flex', gap: 8, alignItems: 'flex-start', background: 'var(--safe-soft)', borderRadius: 8, padding: '9px 12px', lineHeight: 1.55 }}>
+              <span aria-hidden="true">🛡️</span>
+              <span>มาตรการตรวจสอบ: ระบบอ่าน metadata เวลา-พิกัด และตรวจภาพซ้ำ (image hashing) อัตโนมัติ เพื่อป้องกันการใช้ภาพเก่าหรือภาพจากที่อื่นมาสวมสิทธิ์</span>
+            </div>
+          </div>
 
           <PhotoGroup
             title="📸 รูประหว่างน้ำท่วม (ไม่บังคับ)"

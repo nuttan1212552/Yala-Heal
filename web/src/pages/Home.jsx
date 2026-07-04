@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { SosIcon, MindIcon, ShareIcon, ReliefIcon, DashboardIcon } from '../components/Icons';
+import { MindIcon, ShareIcon, ReliefIcon } from '../components/Icons';
 import ProfileCard from '../components/ProfileCard';
 
 const securityItems = [
@@ -12,7 +12,7 @@ const securityItems = [
 ];
 
 const roadmapItems = [
-  { n: '01', phase: 'เฟส 1 · รากฐาน', title: 'SOS + ฐานข้อมูลกลาง', text: 'วางระบบแจ้งเหตุฉุกเฉินและฐานข้อมูลกลาง ให้ช่วยชีวิตได้ทันทีตั้งแต่วันแรก', tone: 'strong' },
+  { n: '01', phase: 'เฟส 1 · รากฐาน', title: 'ฐานข้อมูลกลาง', text: 'วางระบบฐานข้อมูลกลางที่เชื่อมทุกบริการเข้าด้วยกัน ให้ข้อมูลถูกต้องและช่วยเหลือประชาชนได้เร็วตั้งแต่วันแรก', tone: 'strong' },
   { n: '02', phase: 'เฟส 2 · ชุมชนช่วยกัน', title: 'ศูนย์แบ่งปัน + ส่งต่องาน', text: 'เปิดระบบแบ่งปันเหลือ-ขาด และเครือข่ายอาสาสมัคร ให้ชุมชนช่วยกันอย่างทั่วถึง' },
   { n: '03', phase: 'เฟส 3 · ฟื้นฟูรอบด้าน', title: 'เงินเยียวยา + คุยกับใจ', text: 'เพิ่มการเยียวยาการเงินอย่างโปร่งใส และการดูแลสุขภาพจิต ครอบคลุมทั้งกายและใจ' },
 ];
@@ -41,18 +41,12 @@ export default function Home() {
             เมื่อภัยพิบัติมา ยะลาต้อง<br />ไม่มีใคร<span style={{ color: 'var(--primary)' }}>ถูกทิ้งไว้ข้างหลัง</span>
           </h1>
           <p style={{ fontSize: 'clamp(17px,2vw,20px)', lineHeight: 1.65, color: '#3A485F', maxWidth: 640, margin: '0 auto 30px' }}>
-            ผู้ช่วยผ่าน LINE Official Account ที่รวม 4 บริการหลักไว้ในที่เดียว เลือกบริการที่ต้องการด้านล่างเพื่อเริ่มใช้งานได้ทันที
+            ผู้ช่วยผ่าน LINE Official Account ที่รวม 3 บริการหลักไว้ในที่เดียว เลือกบริการที่ต้องการด้านล่างเพื่อเริ่มใช้งานได้ทันที
           </p>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
             <a href="#features" style={{ display: 'inline-flex', alignItems: 'center', gap: 9, textDecoration: 'none', background: 'var(--primary)', color: '#fff', padding: '15px 28px', borderRadius: 11, fontWeight: 700, fontSize: 16.5, minHeight: 44 }}>
               เลือกใช้บริการ <span aria-hidden="true">↓</span>
             </a>
-            <button
-              onClick={() => navigate('/sos')}
-              style={{ display: 'inline-flex', alignItems: 'center', gap: 9, background: '#fff', border: '1.5px solid var(--danger)', color: 'var(--danger)', padding: '15px 28px', borderRadius: 11, fontWeight: 700, fontSize: 16.5, minHeight: 44, cursor: 'pointer' }}
-            >
-              แจ้งเหตุฉุกเฉินทันที
-            </button>
           </div>
         </div>
       </section>
@@ -65,18 +59,10 @@ export default function Home() {
           </div>
           <div className="reveal" style={{ textAlign: 'center', maxWidth: 680, margin: '0 auto 40px' }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primary)', marginBottom: 10 }}>เลือกบริการ</div>
-            <h2 style={{ fontSize: 'clamp(26px,3.6vw,40px)', lineHeight: 1.16, marginBottom: 12 }}>4 บริการหลัก กดเข้าใช้งานได้เลย</h2>
+            <h2 style={{ fontSize: 'clamp(26px,3.6vw,40px)', lineHeight: 1.16, marginBottom: 12 }}>3 บริการหลัก กดเข้าใช้งานได้เลย</h2>
             <p style={{ fontSize: 17.5, color: '#3A485F', margin: 0 }}>ทุกบริการเป็นตัวอย่างที่ใช้งานได้จริง กรอกข้อมูลและกดปุ่มได้ทุกขั้นตอน (ข้อมูลตัวอย่าง)</p>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(270px,1fr))', gap: 18 }}>
-            <button onClick={() => navigate('/sos')} className="reveal" style={cardStyle}>
-              <span aria-hidden="true" style={iconWrap('var(--danger-soft)')}><SosIcon color="var(--danger)" /></span>
-              <div>
-                <div style={{ fontWeight: 700, fontSize: 20, color: '#122A4A', marginBottom: 5 }}>SOS แจ้งเหตุฉุกเฉิน</div>
-                <p style={{ margin: 0, fontSize: 15, color: '#52607A', lineHeight: 1.55 }}>ยืนยันตัวตน ส่งพิกัดอัตโนมัติ ติดตามสถานะการช่วยเหลือแบบเรียลไทม์</p>
-              </div>
-              <span style={{ marginTop: 'auto', color: 'var(--primary)', fontWeight: 700, fontSize: 15 }}>เข้าใช้บริการ →</span>
-            </button>
             <button onClick={() => navigate('/mind-talk')} className="reveal" style={cardStyle}>
               <span aria-hidden="true" style={iconWrap('var(--safe-soft)')}><MindIcon color="var(--safe)" /></span>
               <div>
@@ -102,20 +88,6 @@ export default function Home() {
               <span style={{ marginTop: 'auto', color: 'var(--primary)', fontWeight: 700, fontSize: 15 }}>เข้าใช้บริการ →</span>
             </button>
           </div>
-          <button
-            onClick={() => navigate('/dashboard')}
-            className="reveal"
-            style={{ width: '100%', marginTop: 18, textAlign: 'left', cursor: 'pointer', background: 'var(--primary)', color: '#fff', border: 'none', borderRadius: 16, padding: '22px 26px', display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap', minHeight: 44 }}
-          >
-            <span aria-hidden="true" style={{ width: 46, height: 46, borderRadius: 12, background: 'rgba(255,255,255,.16)', display: 'flex', alignItems: 'center', justifyContent: 'center', flex: 'none' }}>
-              <DashboardIcon />
-            </span>
-            <div style={{ flex: 1, minWidth: 200 }}>
-              <div style={{ fontWeight: 700, fontSize: 18 }}>สำหรับเจ้าหน้าที่ · Dashboard เทศบาล</div>
-              <div style={{ fontSize: 14.5, opacity: .85 }}>ดูภาพรวมทุกเคสแบบเรียลไทม์จากฐานข้อมูลกลาง</div>
-            </div>
-            <span style={{ fontWeight: 700, fontSize: 15 }}>เปิด Dashboard →</span>
-          </button>
         </div>
       </section>
 

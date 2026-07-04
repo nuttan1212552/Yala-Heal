@@ -2,11 +2,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import BrandLogo from './BrandLogo';
 
 const TITLES = {
-  '/sos': 'SOS แจ้งเหตุฉุกเฉิน',
   '/mind-talk': 'คุยกับใจ',
   '/share': 'ศูนย์แบ่งปัน',
   '/relief': 'ระบบเงินเยียวยา',
-  '/dashboard': 'Dashboard เทศบาล',
 };
 
 export default function Header({ navOpen, toggleNav }) {
@@ -49,10 +47,10 @@ export default function Header({ navOpen, toggleNav }) {
             <a href="#roadmap" style={{ textDecoration: 'none', color: '#33415A' }}>Roadmap</a>
             <a href="#contact" style={{ textDecoration: 'none', color: '#33415A' }}>ติดต่อ</a>
             <button
-              onClick={() => navigate('/sos')}
-              style={{ color: '#fff', background: 'var(--danger)', padding: '11px 18px', borderRadius: 9, fontWeight: 700, border: 'none', cursor: 'pointer', minHeight: 44, fontSize: 15 }}
+              onClick={() => navigate('/relief')}
+              style={{ color: '#fff', background: 'var(--primary)', padding: '11px 18px', borderRadius: 9, fontWeight: 700, border: 'none', cursor: 'pointer', minHeight: 44, fontSize: 15 }}
             >
-              แจ้งเหตุด่วน
+              ยื่นเยียวยา
             </button>
           </div>
         )}
@@ -69,11 +67,9 @@ export default function Header({ navOpen, toggleNav }) {
       </div>
       {navOpen && (
         <div style={{ borderTop: '1px solid var(--line)', padding: '10px 16px 18px', display: 'flex', flexDirection: 'column', gap: 2, background: '#fff' }}>
-          <Link to="/sos" style={navItemStyle}>แจ้งเหตุฉุกเฉิน</Link>
           <Link to="/mind-talk" style={navItemStyle}>คุยกับใจ</Link>
           <Link to="/share" style={navItemStyle}>ศูนย์แบ่งปัน</Link>
           <Link to="/relief" style={navItemStyle}>เงินเยียวยา</Link>
-          <Link to="/dashboard" style={navItemStyle}>Dashboard เจ้าหน้าที่</Link>
         </div>
       )}
     </header>
