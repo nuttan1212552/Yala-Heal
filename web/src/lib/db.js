@@ -282,3 +282,28 @@ export function notifyLine(phone, message) {
     body: JSON.stringify({ phone, message }),
   }).catch(() => {});
 }
+
+// ขอ OTP — ส่งเข้า LINE ถ้าเบอร์นี้เชื่อมไว้ ไม่งั้นตกไปโหมดสาธิต (123456)
+export async function requestOtp(phone) {
+  try {
+    const r = await fetch('/api/otp-request', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone }),
+    });
+    return await r.json();
+  } catch {
+    return { ok: true, sent: false, reason: 'network', token: '' }; // ออฟไลน์/พรีวิว → ใช้ 123456 ได้
+  }
+}
+
+// ยืนยัน OTP — ตรวจกับ backend, ถ้าติดต่อ backend ไม่ได้ก็ยอมรับ 123456 (สาธิต)
+export async function verifyOtp(phone, otp, token) {
+  try {
+    const r = await fetch('/api/otp-verify', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ phone, otp, token }),
+    });
+    const data = await r.json();
+    return Boolean(data.ok);
+  } catch {
+    return otp === '123456';
+  }
+}

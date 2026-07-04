@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { PHONE_RE, genRef, scrollTop, stepBars } from '../lib/helpers';
-import { insertSosReport } from '../lib/db';
+import { insertSosReport, requestOtp, verifyOtp, lineLoginUrl } from '../lib/db';
 import { SosIcon } from '../components/Icons';
 
 const SOS_TYPES = ['น้ำท่วม/ต้องอพยพ', 'ผู้ป่วย/บาดเจ็บ', 'ติดค้าง/ขาดอาหาร', 'อื่น ๆ'];
@@ -32,6 +32,9 @@ export default function Sos() {
   const [phoneErr, setPhoneErr] = useState('');
   const [otp, setOtp] = useState('');
   const [otpErr, setOtpErr] = useState('');
+  const [otpToken, setOtpToken] = useState('');
+  const [otpChannel, setOtpChannel] = useState('demo'); // line | demo
+  const [otpBusy, setOtpBusy] = useState(false);
   const [resendLeft, setResendLeft] = useState(0);
   const [form, setForm] = useState(initialForm);
   const [track, setTrack] = useState(0);
@@ -59,23 +62,44 @@ export default function Sos() {
     scrollTop();
   };
 
-  const submitPhone = () => {
+  const submitPhone = async () => {
     const p = phone.trim();
     if (!PHONE_RE.test(p)) { setPhoneErr('กรุณากรอกเบอร์มือถือ 10 หลัก (ขึ้นต้นด้วย 0)'); return; }
-    setPhoneErr(''); setStage('otp');
-    showToast('ส่งรหัส OTP แล้ว (ตัวอย่าง: 123456)');
+    if (otpBusy) return;
+    setPhoneErr(''); setOtpBusy(true);
+    const r = await requestOtp(p);
+    setOtpBusy(false);
+    setOtpToken(r.token || '');
+    if (r.sent && r.channel === 'line') {
+      setOtpChannel('line');
+      showToast('ส่งรหัส OTP เข้า LINE ของคุณแล้ว 📲');
+    } else {
+      setOtpChannel('demo');
+      showToast('ใช้รหัสสาธิต 123456 (เบอร์นี้ยังไม่ได้เชื่อม LINE)');
+    }
+    setOtp(''); setOtpErr(''); setStage('otp');
     startResend();
   };
 
-  const submitOtp = () => {
+  const submitOtp = async () => {
     const o = otp.trim();
     if (!/^\d{6}$/.test(o)) { setOtpErr('กรุณากรอกรหัส 6 หลัก'); return; }
+    if (otpBusy) return;
+    setOtpBusy(true);
+    const ok = await verifyOtp(phone.trim(), o, otpToken);
+    setOtpBusy(false);
+    if (!ok) { setOtpErr('รหัส OTP ไม่ถูกต้องหรือหมดอายุ ลองใหม่อีกครั้ง'); return; }
     setOtpErr(''); setStage('form');
   };
 
-  const resendOtp = () => {
-    if (resendLeft > 0) return;
-    showToast('ส่งรหัสใหม่แล้ว (ตัวอย่าง: 123456)');
+  const resendOtp = async () => {
+    if (resendLeft > 0 || otpBusy) return;
+    setOtpBusy(true);
+    const r = await requestOtp(phone.trim());
+    setOtpBusy(false);
+    setOtpToken(r.token || '');
+    if (r.sent && r.channel === 'line') { setOtpChannel('line'); showToast('ส่งรหัสใหม่เข้า LINE แล้ว 📲'); }
+    else { setOtpChannel('demo'); showToast('ส่งรหัสใหม่แล้ว (สาธิต: 123456)'); }
     startResend();
   };
 
@@ -122,11 +146,11 @@ export default function Sos() {
       {stage === 'phone' && (
         <div style={card}>
           <h2 style={{ fontSize: 21, marginBottom: 8 }}>ยืนยันตัวตนก่อนใช้งาน</h2>
-          <p style={{ color: '#52607A', fontSize: 15.5, margin: '0 0 22px' }}>เพื่อป้องกันการแจ้งเหตุเท็จ ระบบจะส่งรหัส OTP ไปยังเบอร์โทรของคุณ (ใช้ครั้งแรกครั้งเดียว)</p>
+          <p style={{ color: '#52607A', fontSize: 15.5, margin: '0 0 22px' }}>เพื่อป้องกันการแจ้งเหตุเท็จ ระบบจะส่งรหัส OTP เข้า <b>LINE</b> ของคุณ (ถ้าเชื่อมไว้) หรือใช้รหัสสาธิตก็ได้</p>
           <label htmlFor="sosphone" style={{ display: 'block', fontSize: 14.5, fontWeight: 600, color: '#33415A', marginBottom: 7 }}>เบอร์โทรศัพท์มือถือ</label>
           <input id="sosphone" type="tel" inputMode="numeric" maxLength={10} placeholder="เช่น 0812345678" value={phone} onChange={(e) => setPhone(e.target.value)} style={inputStyle} />
           {phoneErr && <div role="alert" style={{ color: 'var(--danger)', fontSize: 14, marginTop: 8 }}>{phoneErr}</div>}
-          <button onClick={submitPhone} style={primaryBtn}>ขอรหัส OTP</button>
+          <button onClick={submitPhone} disabled={otpBusy} style={{ ...primaryBtn, opacity: otpBusy ? 0.6 : 1 }}>{otpBusy ? 'กำลังส่งรหัส…' : 'ขอรหัส OTP'}</button>
           <div style={{ marginTop: 16, display: 'flex', gap: 10, alignItems: 'flex-start', background: 'var(--danger-soft)', borderRadius: 10, padding: '12px 14px' }}>
             <span aria-hidden="true" style={{ color: 'var(--danger)', fontWeight: 700 }}>☎</span>
             <span style={{ fontSize: 14, color: '#3A485F', lineHeight: 1.55 }}>กรณีเน็ต/ไฟดับ หรือเหตุคับขัน โทรสายด่วน <b style={{ color: 'var(--danger)' }}>199</b> ได้ทันทีโดยไม่ต้องยืนยันตัวตน</span>
@@ -137,12 +161,21 @@ export default function Sos() {
       {stage === 'otp' && (
         <div style={card}>
           <h2 style={{ fontSize: 21, marginBottom: 8 }}>กรอกรหัส OTP</h2>
-          <p style={{ color: '#52607A', fontSize: 15.5, margin: '0 0 8px' }}>ส่งรหัส 6 หลักไปยังเบอร์ <b style={{ color: '#122A4A' }}>{phone}</b> แล้ว</p>
-          <div style={{ fontSize: 13.5, color: 'var(--safe)', background: 'var(--safe-soft)', borderRadius: 8, padding: '8px 12px', marginBottom: 20, display: 'inline-block' }}>รหัสตัวอย่างสำหรับสาธิต: 123456</div>
+          {otpChannel === 'line'
+            ? <p style={{ color: '#52607A', fontSize: 15.5, margin: '0 0 8px' }}>ส่งรหัส 6 หลักเข้า <b style={{ color: '#06C755' }}>LINE</b> ของเบอร์ <b style={{ color: '#122A4A' }}>{phone}</b> แล้ว 📲</p>
+            : <p style={{ color: '#52607A', fontSize: 15.5, margin: '0 0 8px' }}>เบอร์ <b style={{ color: '#122A4A' }}>{phone}</b> ยังไม่ได้เชื่อม LINE</p>}
+          {otpChannel === 'line'
+            ? <div style={{ fontSize: 13.5, color: '#06C755', background: 'rgba(6,199,85,.1)', borderRadius: 8, padding: '8px 12px', marginBottom: 20, display: 'inline-block' }}>เปิดแอป LINE เพื่อดูรหัส (หรือใช้ 123456 สำหรับสาธิต)</div>
+            : <div style={{ fontSize: 13.5, color: 'var(--safe)', background: 'var(--safe-soft)', borderRadius: 8, padding: '8px 12px', marginBottom: 20, display: 'inline-block' }}>โหมดสาธิต — กรอกรหัส <b>123456</b></div>}
           <label htmlFor="sosotp" style={{ display: 'block', fontSize: 14.5, fontWeight: 600, color: '#33415A', marginBottom: 7 }}>รหัส OTP</label>
           <input id="sosotp" type="tel" inputMode="numeric" maxLength={6} placeholder="______" value={otp} onChange={(e) => setOtp(e.target.value)} style={{ ...inputStyle, fontSize: 24, letterSpacing: 10, textAlign: 'center', minHeight: 56 }} />
           {otpErr && <div role="alert" style={{ color: 'var(--danger)', fontSize: 14, marginTop: 8 }}>{otpErr}</div>}
-          <button onClick={submitOtp} style={primaryBtn}>ยืนยันรหัส</button>
+          <button onClick={submitOtp} disabled={otpBusy} style={{ ...primaryBtn, opacity: otpBusy ? 0.6 : 1 }}>{otpBusy ? 'กำลังตรวจสอบ…' : 'ยืนยันรหัส'}</button>
+          {otpChannel !== 'line' && (
+            <a href={PHONE_RE.test(phone.trim()) ? lineLoginUrl(phone.trim()) : undefined} style={{ display: 'block', textAlign: 'center', marginTop: 12, color: '#06C755', fontSize: 14, fontWeight: 600, textDecoration: 'none' }}>
+              เชื่อมต่อ LINE เพื่อรับ OTP จริงครั้งหน้า →
+            </a>
+          )}
           {resendLeft <= 0
             ? <button onClick={resendOtp} style={{ marginTop: 10, width: '100%', background: 'none', border: 'none', color: 'var(--primary)', fontSize: 14.5, cursor: 'pointer', textDecoration: 'underline' }}>ส่งรหัสอีกครั้ง</button>
             : <div aria-live="polite" style={{ marginTop: 10, textAlign: 'center', color: '#8592A3', fontSize: 14 }}>ส่งรหัสอีกครั้งได้ใน {resendLeft} วินาที</div>}
