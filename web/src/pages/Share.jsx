@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { PHONE_RE, genRef, scrollTop } from '../lib/helpers';
 import { ShareIcon } from '../components/Icons';
-import { fetchJobs, insertJob, insertJobApplication, insertJobReport, insertJobRating, lineLoginUrl, notifyLine } from '../lib/db';
+import { fetchJobs, insertJob, insertJobApplication, insertJobReport, insertJobRating, insertShareRequest, lineLoginUrl, notifyLine } from '../lib/db';
 
 const TAB_DEFS = [{ k: 'all', l: 'ทั้งหมด' }, { k: 'need', l: 'ต้องการ' }, { k: 'give', l: 'แบ่งปัน' }, { k: 'job', l: 'จ้างงาน/รับงาน' }];
 const NEW_TYPES = [{ k: 'need', l: 'ขอ/ต้องการ' }, { k: 'give', l: 'มี/แบ่งปัน' }, { k: 'gig', l: 'หาอาสา' }];
@@ -128,7 +128,7 @@ export default function Share() {
   }, []);
   const [selJob, setSelJob] = useState(null);
   const [applyStage, setApplyStage] = useState('verify'); // verify | confirm
-  const [applyForm, setApplyForm] = useState({ phone: '', verified: false, verifying: false, err: '' });
+  const [applyForm, setApplyForm] = useState({ name: '', nationalId: '', phone: '', idMethod: 'form', verified: false, verifying: false, err: '' });
   const [reportJob, setReportJob] = useState(null);
   const [reportReason, setReportReason] = useState('');
   const [doneRated, setDoneRated] = useState(false); // งานตัวอย่างถูกให้คะแนนแล้วหรือยัง
@@ -152,13 +152,22 @@ export default function Share() {
     setSubmitting(true);
     setReqForm((f) => ({ ...f, err: '' }));
     const newRef = genRef('SH', 5);
+    // บันทึกจริงลง Supabase แบบ fire-and-forget (ไม่บล็อก UI ถ้าเน็ตช้า)
+    insertShareRequest({
+      itemName: sel?.name,
+      type: sel?.type,
+      name: reqForm.name.trim(),
+      phone: reqForm.phone.trim(),
+      qty: reqForm.qty.trim(),
+      note: reqForm.note.trim(),
+    });
     setTimeout(() => {
       setSubmitting(false);
       setRef(newRef);
       setDoneMode(sel?.type === 'give' ? 'request' : sel?.type === 'gig' ? 'gig' : 'offer');
       setView('done');
       scrollTop();
-    }, 700);
+    }, 500);
   };
 
   const submitNew = () => {
@@ -174,28 +183,40 @@ export default function Share() {
   const startApply = (job) => {
     setSelJob(job);
     setApplyStage('verify');
-    setApplyForm({ phone: '', verified: false, verifying: false, err: '' });
+    setApplyForm({ name: '', nationalId: '', phone: '', idMethod: 'form', verified: false, verifying: false, err: '' });
     setView('jobApply'); scrollTop();
   };
+  // ThaID = ทางเลือกยืนยันแบบเร็ว (จำลอง) — เติมสถานะยืนยันให้เลย
   const runThaID = () => {
     setApplyForm((f) => ({ ...f, verifying: true, err: '' }));
-    setTimeout(() => setApplyForm((f) => ({ ...f, verifying: false, verified: true })), 1100);
+    setTimeout(() => setApplyForm((f) => ({ ...f, verifying: false, verified: true, idMethod: 'thaid' })), 1100);
   };
   const goConfirm = () => {
-    if (!applyForm.verified) { setApplyForm((f) => ({ ...f, err: 'กรุณายืนยันตัวตนด้วย ThaID ก่อน' })); return; }
+    // ต้องยืนยันตัวตนด้วยวิธีใดวิธีหนึ่ง: กรอกฟอร์ม (ชื่อ+เลขบัตร 13 หลัก) หรือ ThaID
+    if (applyForm.idMethod === 'thaid') {
+      if (!applyForm.verified) { setApplyForm((f) => ({ ...f, err: 'กรุณากด "เข้าสู่ระบบด้วย ThaID" ให้สำเร็จก่อน' })); return; }
+    } else {
+      if (!applyForm.name.trim()) { setApplyForm((f) => ({ ...f, err: 'กรุณากรอกชื่อ-นามสกุล' })); return; }
+      if (applyForm.nationalId.replace(/\D/g, '').length !== 13) { setApplyForm((f) => ({ ...f, err: 'กรุณากรอกเลขบัตรประชาชนให้ครบ 13 หลัก' })); return; }
+    }
     if (!PHONE_RE.test(applyForm.phone.trim())) { setApplyForm((f) => ({ ...f, err: 'กรอกเบอร์โทร 10 หลักให้ถูกต้อง' })); return; }
     if (readApplied().includes(selJob.id)) { setApplyForm((f) => ({ ...f, err: 'คุณสมัครงานนี้ไปแล้ว (1 คน สมัครได้ครั้งเดียว)' })); return; }
-    setApplyForm((f) => ({ ...f, err: '' }));
+    setApplyForm((f) => ({ ...f, err: '', verified: true }));
     setApplyStage('confirm'); scrollTop();
   };
   const confirmApply = () => {
     markApplied(selJob.id);
     bumpTrust();
     setJobs((list) => list.map((j) => (j.id === selJob.id ? { ...j, applied: Math.min(j.applied + 1, j.need) } : j)));
-    insertJobApplication(selJob.id, applyForm.phone.trim());
+    insertJobApplication(selJob.id, applyForm.phone.trim(), {
+      fullName: applyForm.name.trim() || null,
+      nationalId: applyForm.nationalId.replace(/\D/g, '') || null,
+      idMethod: applyForm.idMethod,
+    });
     if (selJob.posterPhone) {
       const maskedPhone = applyForm.phone.trim().replace(/^(\d{3})\d{4}(\d{3})$/, '$1-xxxx-$2');
-      notifyLine(selJob.posterPhone, `🟢 มีคนกดรับงาน "${selJob.title}" แล้ว!\nผู้สมัคร: ${maskedPhone} · ยืนยันตัวตนด้วย ThaID แล้ว\nดูรายละเอียดที่เว็บ Yala Heal`);
+      const who = applyForm.name.trim() ? applyForm.name.trim() : maskedPhone;
+      notifyLine(selJob.posterPhone, `🟢 มีคนกดรับงาน "${selJob.title}" แล้ว!\nผู้สมัคร: ${who} (${maskedPhone}) · ยืนยันตัวตนแล้ว\nดูรายละเอียดที่เว็บ Yala Heal`);
     }
     setRef(genRef('JOB', 5));
     setView('jobDone'); scrollTop();
@@ -420,16 +441,32 @@ export default function Share() {
 
             {applyStage === 'verify' && (
               <div>
-                <div style={{ background: 'var(--bg-alt)', borderRadius: 12, padding: 18, marginBottom: 16, textAlign: 'center' }}>
-                  <div style={{ fontSize: 32, marginBottom: 6 }}>🪪</div>
-                  <div style={{ fontWeight: 700, color: '#122A4A', marginBottom: 4 }}>ยืนยันตัวตนด้วย ThaID</div>
-                  <div style={{ fontSize: 13.5, color: '#52607A', marginBottom: 16 }}>เพื่อความปลอดภัยของชุมชน ผู้รับงานทุกคนต้องยืนยันตัวตนจริง</div>
-                  {applyForm.verified
-                    ? <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'var(--safe-soft)', color: 'var(--safe)', padding: '11px 20px', borderRadius: 10, fontWeight: 700, fontSize: 15 }}>✓ ยืนยันตัวตนสำเร็จ</div>
-                    : <button onClick={runThaID} disabled={applyForm.verifying} style={{ background: '#1A56DB', color: '#fff', border: 'none', padding: '12px 24px', borderRadius: 10, fontWeight: 700, fontSize: 15, cursor: applyForm.verifying ? 'wait' : 'pointer', minHeight: 48, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                        {applyForm.verifying ? <><span style={{ width: 15, height: 15, border: '2px solid rgba(255,255,255,.4)', borderTopColor: '#fff', borderRadius: '50%', display: 'inline-block', animation: 'spin .7s linear infinite' }} /> กำลังยืนยัน…</> : 'เข้าสู่ระบบด้วย ThaID'}
-                      </button>}
-                </div>
+                <div style={{ fontSize: 13.5, color: '#52607A', marginBottom: 14, lineHeight: 1.6 }}>เพื่อความปลอดภัยของชุมชน ผู้รับงานทุกคนต้องยืนยันตัวตนจริง — กรอกข้อมูลด้านล่าง หรือใช้ ThaID ก็ได้</div>
+
+                {applyForm.idMethod === 'thaid' && applyForm.verified ? (
+                  <div style={{ background: 'var(--safe-soft)', borderRadius: 12, padding: 16, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 22 }}>🛡️</span>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 700, color: 'var(--safe)', fontSize: 15 }}>ยืนยันตัวตนด้วย ThaID สำเร็จ</div>
+                      <button onClick={() => setApplyForm((f) => ({ ...f, idMethod: 'form', verified: false }))} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 13, cursor: 'pointer', padding: 0, marginTop: 2 }}>เปลี่ยนเป็นกรอกฟอร์มแทน</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div style={{ marginBottom: 14 }}>
+                      <label htmlFor="apname" style={label}>ชื่อ-นามสกุล</label>
+                      <input id="apname" value={applyForm.name} onChange={(e) => setApplyForm((f) => ({ ...f, name: e.target.value }))} placeholder="ชื่อจริง-นามสกุล" style={inputStyle} />
+                    </div>
+                    <div style={{ marginBottom: 14 }}>
+                      <label htmlFor="apid" style={label}>เลขบัตรประชาชน 13 หลัก</label>
+                      <input id="apid" type="tel" inputMode="numeric" maxLength={13} value={applyForm.nationalId} onChange={(e) => setApplyForm((f) => ({ ...f, nationalId: e.target.value.replace(/\D/g, '') }))} placeholder="x xxxx xxxxx xx x" style={{ ...inputStyle, letterSpacing: 1 }} />
+                    </div>
+                    <button onClick={runThaID} disabled={applyForm.verifying} style={{ width: '100%', background: '#fff', color: '#1A56DB', border: '1.5px solid #1A56DB', padding: '11px', borderRadius: 10, fontWeight: 700, fontSize: 14.5, cursor: applyForm.verifying ? 'wait' : 'pointer', minHeight: 46, marginBottom: 16, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+                      {applyForm.verifying ? <><span style={{ width: 15, height: 15, border: '2px solid rgba(26,86,219,.3)', borderTopColor: '#1A56DB', borderRadius: '50%', display: 'inline-block', animation: 'spin .7s linear infinite' }} /> กำลังยืนยัน…</> : '🪪 หรือยืนยันด้วย ThaID (ถ้ามีแอป)'}
+                    </button>
+                  </>
+                )}
+
                 <div style={{ marginBottom: 16 }}>
                   <label htmlFor="apphone" style={label}>เบอร์โทรติดต่อ</label>
                   <input id="apphone" type="tel" inputMode="numeric" value={applyForm.phone} onChange={(e) => setApplyForm((f) => ({ ...f, phone: e.target.value }))} placeholder="เช่น 0812345678" style={inputStyle} />
@@ -443,7 +480,7 @@ export default function Share() {
               <div>
                 <div style={{ background: 'var(--safe-soft)', borderRadius: 12, padding: 16, marginBottom: 16 }}>
                   <div style={{ fontSize: 12.5, color: '#52607A', fontWeight: 700, marginBottom: 8 }}>โปรไฟล์ความน่าเชื่อถือของคุณ</div>
-                  <TrustRow name="คุณ (ยืนยัน ThaID แล้ว)" rating={myTrust?.rating} jobs={myTrust?.jobs || 0} verified />
+                  <TrustRow name={applyForm.name.trim() ? `${applyForm.name.trim()} (ยืนยันแล้ว)` : 'คุณ (ยืนยัน ThaID แล้ว)'} rating={myTrust?.rating} jobs={myTrust?.jobs || 0} verified />
                   {(!myTrust || !myTrust.jobs) && <div style={{ fontSize: 12.5, color: '#B36B00', marginTop: 10, lineHeight: 1.6 }}>💡 คุณยังไม่มีประวัติงาน เมื่อทำงานสำเร็จและได้รับคะแนน โปรไฟล์จะน่าเชื่อถือขึ้น ผู้ว่าจ้างจะไว้ใจมากขึ้น</div>}
                 </div>
                 <div style={{ background: 'var(--bg-alt)', borderRadius: 10, padding: '12px 14px', fontSize: 13.5, color: '#33415A', marginBottom: 18, lineHeight: 1.6 }}>

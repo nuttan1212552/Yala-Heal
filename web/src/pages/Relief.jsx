@@ -105,14 +105,14 @@ export default function Relief() {
     const newRef = genRef('RL', 6);
     setRef(newRef); setDoneMode('confirm'); setStage('done'); scrollTop();
     showToast('ยืนยันคำร้องเรียบร้อย');
-    insertReliefClaim({ ref: newRef, name: reg.name.trim() || null, grade, water, mode: 'confirm' });
+    insertReliefClaim({ ref: newRef, name: reg.name.trim() || null, grade, water, mode: 'confirm', nationalId: reg.id.replace(/\D/g, '') || null, idMethod: idMethod === 'thaid' ? 'thaid' : 'form' });
   };
   const submitAppeal = () => {
     if (!appealText.trim()) { setAppealErr('กรุณาระบุเหตุผลการอุทธรณ์'); return; }
     const newRef = genRef('AP', 6);
     setRef(newRef); setDoneMode('appeal'); setStage('done'); scrollTop();
     showToast('ส่งอุทธรณ์เรียบร้อย');
-    insertReliefClaim({ ref: newRef, name: reg.name.trim() || null, grade, water, mode: 'appeal' });
+    insertReliefClaim({ ref: newRef, name: reg.name.trim() || null, grade, water, mode: 'appeal', nationalId: reg.id.replace(/\D/g, '') || null, idMethod: idMethod === 'thaid' ? 'thaid' : 'form' });
   };
 
   const toggleDamage = (t) => setDamage((d) => (d.includes(t) ? d.filter((x) => x !== t) : [...d, t]));

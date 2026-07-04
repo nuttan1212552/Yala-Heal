@@ -95,8 +95,24 @@ export async function insertReliefClaim(claim) {
     grade: claim.grade,
     water_level: claim.water,
     mode: claim.mode,
+    national_id: claim.nationalId || null,
+    id_method: claim.idMethod || null,
   });
   if (error) console.error('insertReliefClaim error:', error.message);
+}
+
+// คำขอในศูนย์แบ่งปัน (ขอรับ / สมัครอาสา / แจ้งมีให้) — บันทึกจริง
+export async function insertShareRequest(reqData) {
+  if (!hasSupabase) return;
+  const { error } = await supabase.from('share_requests').insert({
+    item_name: reqData.itemName || null,
+    type: reqData.type || null,
+    name: reqData.name,
+    phone: reqData.phone,
+    qty: reqData.qty || null,
+    note: reqData.note || null,
+  });
+  if (error) console.error('insertShareRequest error:', error.message);
 }
 
 export async function insertMindRequest(req) {
@@ -214,9 +230,15 @@ export async function insertJob(job) {
   };
 }
 
-export async function insertJobApplication(jobId, phone) {
+export async function insertJobApplication(jobId, phone, identity = {}) {
   if (!hasSupabase || typeof jobId !== 'number') return;
-  const { error } = await supabase.from('job_applications').insert({ job_id: jobId, phone });
+  const { error } = await supabase.from('job_applications').insert({
+    job_id: jobId,
+    phone,
+    full_name: identity.fullName || null,
+    national_id: identity.nationalId || null,
+    id_method: identity.idMethod || null,
+  });
   if (error) console.error('insertJobApplication error:', error.message);
 }
 
