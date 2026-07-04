@@ -123,6 +123,9 @@ export async function insertReliefClaim(claim) {
     photo_critical: claim.photoCritical || null,
     tracking_id: claim.trackingId || claim.ref || null,
     note: claim.note || null,
+    priority: claim.priority ?? null,
+    ai_grade: claim.aiGrade || null,
+    ai_result: claim.aiResult || null,
     pdpa_consent: Boolean(claim.pdpaConsent),
     declaration_consent: Boolean(claim.declarationConsent),
   });
@@ -352,6 +355,23 @@ export function notifyLine(phone, message, flex) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ phone, message, flex }),
   }).catch(() => {});
+}
+
+// วิเคราะห์รูปความเสียหายด้วย Gemini (ผ่าน serverless /api/analyze-damage)
+// คืน { ok, source:'gemini'|'fallback', grade, priority, confidence, reasons, visual, reason }
+export async function analyzeDamage(payload) {
+  try {
+    const r = await fetch('/api/analyze-damage', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+    });
+    return await r.json();
+  } catch { return { ok: false, source: 'fallback', reason: 'network' }; }
+}
+
+// เช็คสถานะ Gemini (ตั้งค่าคีย์ไว้ไหม) — ใช้โชว์ตัวเชคบนหน้าจอ
+export async function geminiStatus() {
+  try { const r = await fetch('/api/analyze-damage'); return await r.json(); }
+  catch { return { ok: false, hasKey: false }; }
 }
 
 // โปรไฟล์กลาง — บันทึก/อัปเดตลง Supabase (fire-and-forget)

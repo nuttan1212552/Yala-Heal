@@ -1,8 +1,8 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { genRef, scrollTop, stepBars } from '../lib/helpers';
-import { insertReliefClaim, uploadReliefPhoto, notifyLine } from '../lib/db';
+import { insertReliefClaim, uploadReliefPhoto, notifyLine, analyzeDamage, geminiStatus } from '../lib/db';
 import { notifyCard, row, SITE } from '../lib/flex';
 import { ReliefIcon } from '../components/Icons';
 import MapPicker from '../components/MapPicker';
@@ -164,6 +164,18 @@ const emptyForm = {
   declaration: false, pdpa: false,
 };
 
+// แปลเหตุผลที่ Gemini วิเคราะห์ไม่ได้ ให้เป็นภาษาไทยอ่านง่าย (ใช้กับตัวเชค)
+const AI_REASON_TH = {
+  no_key: 'ยังไม่ได้ตั้งค่าคีย์ Gemini (GEMINI_API_KEY) ในระบบ',
+  no_images: 'ยังไม่มีรูปที่อัปขึ้นเซิร์ฟเวอร์',
+  images_unreadable: 'อ่านไฟล์รูปไม่ได้',
+  gemini_error: 'เรียก Gemini ไม่สำเร็จ',
+  quota: 'โควตา Gemini เต็มชั่วคราว',
+  parse_error: 'อ่านผลลัพธ์จาก AI ไม่ได้',
+  server_error: 'เซิร์ฟเวอร์ขัดข้อง',
+  network: 'เชื่อมต่อเซิร์ฟเวอร์ไม่ได้',
+};
+
 export default function Relief() {
   const navigate = useNavigate();
   const { showToast, profile, updateProfile } = useApp();
@@ -181,6 +193,11 @@ export default function Relief() {
   const [ref, setRef] = useState('');
   const [doneMode, setDoneMode] = useState('confirm'); // confirm | appeal
   const [appealText, setAppealText] = useState('');
+  const [aiInfo, setAiInfo] = useState(null);          // ผลวิเคราะห์จาก Gemini
+  const [ai, setAi] = useState(null);                  // สถานะ Gemini (มีคีย์ไหม) — ตัวเชค
+
+  // เช็คสถานะ Gemini ตอนเปิดหน้า (โชว์ว่าระบบ AI พร้อมไหม)
+  useEffect(() => { let alive = true; geminiStatus().then((s) => { if (alive) setAi(s); }); return () => { alive = false; }; }, []);
 
   const stepIdx = STEPS.indexOf(stage);
   const bars = stepBars(STEPS.length, stepIdx);
@@ -267,8 +284,15 @@ export default function Relief() {
     if (e) { setErr(e); return; }
     if (submitting) return;
     setSubmitting(true);
-    const g = gradeFromWater();
+    setStage('analyzing'); scrollTop();
+
+    // ส่งเฉพาะรูปที่อัปขึ้นเซิร์ฟเวอร์แล้ว (https) ให้ Gemini วิเคราะห์
+    const imgs = [...f.photosAfter, ...(f.photoCritical ? [f.photoCritical] : []), ...f.photosDuring]
+      .filter((u) => typeof u === 'string' && u.startsWith('http'));
+    const result = await analyzeDamage({ images: imgs, water: f.waterLevel, days: parseInt(daysValue, 10) || null, damage: f.damageItems });
+    const g = (result && result.ok && result.grade) ? result.grade : gradeFromWater();
     const newRef = genRef('RL', 6);
+
     await insertReliefClaim({
       ref: newRef, trackingId: newRef, mode: 'confirm', grade: g, water: f.waterLevel,
       prefix: f.prefix, name: f.name.trim(), nationalId: f.nationalId.replace(/\D/g, ''),
@@ -279,6 +303,9 @@ export default function Relief() {
       floodStart: f.floodStart, floodEnd: f.floodEnd, daysFlooded: parseInt(daysValue, 10) || null,
       damageItems: f.damageItems, photosDuring: f.photosDuring, photosAfter: f.photosAfter,
       photoHouseReg: f.photoHouseReg, photoRental: f.photoRental, photoCritical: f.photoCritical,
+      priority: result?.priority ?? GRADE_INFO[g].priority,
+      aiGrade: result?.ok ? result.grade : null,
+      aiResult: result || null,
       pdpaConsent: f.pdpa, declarationConsent: f.declaration,
     });
     saveProfile();
@@ -296,7 +323,7 @@ export default function Relief() {
       buttonUri: `${SITE}/relief?openExternalBrowser=1`,
     }));
     setSubmitting(false);
-    setGrade(g); setRef(newRef); setDoneMode('confirm'); setStage('done'); scrollTop();
+    setAiInfo(result); setGrade(g); setRef(newRef); setDoneMode('confirm'); setStage('done'); scrollTop();
     showToast('ยื่นคำร้องเรียบร้อย');
   };
 
@@ -629,6 +656,17 @@ export default function Relief() {
             <ReviewRow k="รูปหลักฐาน" v={`ระหว่างน้ำท่วม ${f.photosDuring.length} · หลังน้ำท่วม ${f.photosAfter.length}${f.photoCritical ? ' · จุดวิกฤต 1' : ''}`} />
           </div>
 
+          {/* ตัวเชคสถานะ Gemini — บอกว่าจะวิเคราะห์ภาพด้วย AI หรือใช้เกณฑ์ระดับน้ำ */}
+          <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', borderRadius: 11, padding: 13, marginBottom: 16, background: ai?.hasKey ? '#F1F6FF' : 'var(--bg-alt)', border: `1px solid ${ai?.hasKey ? '#C9D9F5' : 'var(--line)'}` }}>
+            <span style={{ fontSize: 18 }}>{ai?.hasKey ? '🔷' : '⚙️'}</span>
+            <div style={{ fontSize: 13, color: '#33415A', lineHeight: 1.55 }}>
+              {ai == null ? 'กำลังตรวจสอบระบบ AI…'
+                : ai.hasKey
+                  ? <>ระบบ AI <b>Gemini พร้อมวิเคราะห์ภาพ</b> — เมื่อกดส่ง จะวิเคราะห์รูปตามเกณฑ์ ปภ. แล้วเสนอระดับความเสียหาย (เจ้าหน้าที่อนุมัติขั้นสุดท้าย)</>
+                  : <>ยังไม่ได้ตั้งค่าคีย์ Gemini — ระบบจะ<b>ประเมินจากระดับน้ำแทน</b>ไปก่อน (ใส่ GEMINI_API_KEY ใน Vercel เพื่อเปิดใช้วิเคราะห์ภาพจริง)</>}
+            </div>
+          </div>
+
           <label htmlFor="rf-dec" style={{ display: 'flex', gap: 11, alignItems: 'flex-start', marginBottom: 12, cursor: 'pointer', fontSize: 13.5, color: '#3A485F', lineHeight: 1.55, background: 'var(--amber-soft)', borderRadius: 11, padding: 14 }}>
             <input id="rf-dec" type="checkbox" checked={f.declaration} onChange={(e) => set({ declaration: e.target.checked })} style={{ width: 20, height: 20, marginTop: 1, flex: 'none', accentColor: 'var(--primary)' }} />
             <span>ข้าพเจ้าขอรับรองว่าข้อมูลและรูปภาพที่ส่งมาเป็นความจริงทุกประการ หากตรวจสอบพบว่าเป็นเท็จ ข้าพเจ้ายินยอมคืนเงินช่วยเหลือและรับโทษทางอาญาตามกฎหมาย</span>
@@ -643,6 +681,15 @@ export default function Relief() {
             <button onClick={back} style={ghostBtn}>ย้อนกลับ</button>
             <button onClick={submitClaim} disabled={submitting} style={{ ...primaryBtn, flex: 1, background: submitting ? '#9FB2C9' : 'var(--primary)', cursor: submitting ? 'wait' : 'pointer' }}>{submitting ? 'กำลังส่ง…' : 'ส่งคำร้องเยียวยา'}</button>
           </div>
+        </div>
+      )}
+
+      {/* ===== ANALYZING: กำลังวิเคราะห์ภาพด้วย Gemini ===== */}
+      {stage === 'analyzing' && (
+        <div style={{ ...card, textAlign: 'center', padding: '48px 28px' }}>
+          <div aria-hidden="true" style={{ width: 54, height: 54, margin: '0 auto 18px', border: '4px solid #C9D9F5', borderTopColor: 'var(--primary)', borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+          <div style={{ fontSize: 17, fontWeight: 700, color: '#122A4A', marginBottom: 6 }}>{ai?.hasKey ? '🔷 กำลังวิเคราะห์ภาพด้วย Gemini…' : 'กำลังประมวลผลคำร้อง…'}</div>
+          <div style={{ fontSize: 13.5, color: '#52607A', lineHeight: 1.6 }}>{ai?.hasKey ? 'AI กำลังตรวจรูปความเสียหายตามเกณฑ์ ปภ. อาจใช้เวลาสักครู่' : 'กำลังจัดระดับความเสียหายและออกเลขคำร้อง'}</div>
         </div>
       )}
 
@@ -662,8 +709,37 @@ export default function Relief() {
                   <div><div style={{ fontWeight: 700, color: '#122A4A', fontSize: 16 }}>{gInfo.title}</div><div style={{ fontSize: 13, color: '#52607A' }}>{gInfo.sub} · Priority {gInfo.priority}</div></div>
                 </div>
                 <div style={{ fontSize: 13.5, color: '#33415A', lineHeight: 1.6 }}>ประมาณการวงเงิน: {gInfo.pay}</div>
-                <div style={{ fontSize: 12, color: '#8592A3', marginTop: 8, lineHeight: 1.55 }}>* ประมาณการเบื้องต้นจากระดับน้ำ — เจ้าหน้าที่รัฐเป็นผู้พิจารณาอนุมัติขั้นสุดท้าย (Human-in-the-Loop) · การวิเคราะห์ภาพด้วย AI (Gemini) จะเพิ่มในเฟสถัดไป</div>
+                <div style={{ fontSize: 12, color: '#8592A3', marginTop: 8, lineHeight: 1.55 }}>* {aiInfo?.source === 'gemini' ? 'ประเมินจากภาพโดย AI Gemini' : 'ประมาณการจากระดับน้ำ'} — เจ้าหน้าที่รัฐเป็นผู้พิจารณาอนุมัติขั้นสุดท้าย (Human-in-the-Loop)</div>
               </div>
+
+              {aiInfo && (
+                <div style={{ background: aiInfo.source === 'gemini' ? '#F1F6FF' : 'var(--bg-alt)', border: `1px solid ${aiInfo.source === 'gemini' ? '#C9D9F5' : 'var(--line)'}`, borderRadius: 12, padding: 14, marginBottom: 14, textAlign: 'left' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: aiInfo.source === 'gemini' ? 10 : 4 }}>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: aiInfo.source === 'gemini' ? '#1A56DB' : '#8592A3', color: '#fff', fontSize: 12.5, fontWeight: 700, padding: '4px 10px', borderRadius: 100 }}>
+                      {aiInfo.source === 'gemini' ? '🔷 วิเคราะห์ด้วย Gemini' : '⚙️ ประเมินจากระดับน้ำ'}
+                    </span>
+                    {aiInfo.source === 'gemini' && <span style={{ fontSize: 12.5, color: '#52607A' }}>ความมั่นใจ {aiInfo.confidence}% · ตรวจ {aiInfo.imageCount} รูป · {aiInfo.model}</span>}
+                  </div>
+                  {aiInfo.source === 'gemini' ? (
+                    <>
+                      {aiInfo.visual?.length > 0 && (
+                        <div style={{ marginBottom: 8 }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#122A4A', marginBottom: 4 }}>สิ่งที่ AI เห็นในภาพ</div>
+                          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: '#41506B', lineHeight: 1.65 }}>{aiInfo.visual.map((v, i) => <li key={i}>{v}</li>)}</ul>
+                        </div>
+                      )}
+                      {aiInfo.reasons?.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#122A4A', marginBottom: 4 }}>เหตุผลการจัดระดับ</div>
+                          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: '#41506B', lineHeight: 1.65 }}>{aiInfo.reasons.map((v, i) => <li key={i}>{v}</li>)}</ul>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 12.5, color: '#52607A', lineHeight: 1.55 }}>เหตุผล: {AI_REASON_TH[aiInfo.reason] || aiInfo.reason || 'ไม่ทราบ'} — จึงใช้เกณฑ์ระดับน้ำแทน</div>
+                  )}
+                </div>
+              )}
               <button onClick={() => { setErr(''); setAppealText(''); setStage('appeal'); scrollTop(); }} style={{ ...ghostBtn, width: '100%', marginBottom: 10 }}>ไม่เห็นด้วยกับการประเมิน · ยื่นอุทธรณ์</button>
             </>
           )}
