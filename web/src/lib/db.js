@@ -261,16 +261,43 @@ export async function insertJobRating(jobId, stars, tags) {
 const LINE_LOGIN_CHANNEL_ID = '2010600622';
 const LINE_REDIRECT_URI = 'https://yala-heal.vercel.app/api/line-callback';
 
-// สร้างลิงก์ไปหน้ายินยอมของ LINE — ใช้เบอร์โทรเป็น state เพื่อผูกกลับตอน callback
+// สร้างลิงก์ไปหน้ายินยอมของ LINE
+// - ใส่เบอร์ => ผูกเบอร์↔LINE (ส่งแจ้งเตือนได้) + เข้าสู่ระบบ
+// - ไม่ใส่เบอร์ => เข้าสู่ระบบอย่างเดียว (state='login')
 export function lineLoginUrl(phone) {
+  const p = (phone || '').trim();
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: LINE_LOGIN_CHANNEL_ID,
     redirect_uri: LINE_REDIRECT_URI,
-    state: (phone || '').trim(),
+    state: p || 'login',
     scope: 'profile openid',
   });
   return `https://access.line.me/oauth2/v2.1/authorize?${params.toString()}`;
+}
+
+// ตรวจว่าล็อกอินอยู่ไหม + ดึงโปรไฟล์ที่เคยลงทะเบียน (คืน { auth, profile })
+export async function fetchMe() {
+  try {
+    const r = await fetch('/api/me', { credentials: 'same-origin' });
+    return await r.json();
+  } catch {
+    return { auth: null, profile: null };
+  }
+}
+
+// ออกจากระบบ
+export async function apiLogout() {
+  try { await fetch('/api/logout', { method: 'POST', credentials: 'same-origin' }); } catch { /* noop */ }
+}
+
+// บันทึกโปรไฟล์ที่เซิร์ฟเวอร์ (ผูกกับ LINE ID) — ต้องล็อกอินก่อน
+export function saveProfileServer(profile) {
+  if (!profile.phone) return;
+  fetch('/api/save-profile', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'same-origin',
+    body: JSON.stringify({ name: profile.name, phone: profile.phone, zone: profile.zone, nationalId: profile.nationalId }),
+  }).catch(() => {});
 }
 
 // ยิงแจ้งเตือนแบบ fire-and-forget — ไม่เชื่อม LINE ไว้ก็แค่เงียบๆ ไม่กระทบ flow หลัก
@@ -281,6 +308,20 @@ export function notifyLine(phone, message) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ phone, message }),
   }).catch(() => {});
+}
+
+// โปรไฟล์กลาง — บันทึก/อัปเดตลง Supabase (fire-and-forget)
+export function upsertProfile(profile) {
+  if (!hasSupabase || !profile.phone) return;
+  supabase.from('profiles').upsert({
+    phone: profile.phone,
+    name: profile.name || null,
+    zone: profile.zone || null,
+    national_id: profile.nationalId || null,
+    line_user_id: profile.lineUserId || null,
+    line_linked: Boolean(profile.lineLinked),
+    updated_at: new Date().toISOString(),
+  }).then(({ error }) => { if (error) console.error('upsertProfile error:', error.message); });
 }
 
 // ขอ OTP — ส่งเข้า LINE ถ้าเบอร์นี้เชื่อมไว้ ไม่งั้นตกไปโหมดสาธิต (123456)
