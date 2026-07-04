@@ -176,6 +176,44 @@ export async function fetchJobs() {
   }));
 }
 
+// ลงประกาศงานใหม่ — คืนงานที่บันทึกแล้ว (map แบบเดียวกับ fetchJobs) หรือ null ถ้าไม่มี Supabase
+export async function insertJob(job) {
+  if (!hasSupabase) return null;
+  const { data, error } = await supabase.from('jobs').insert({
+    title: job.title,
+    pay: job.pay,
+    zone: job.zone,
+    note: job.note,
+    need: job.need,
+    applied_base: 0,
+    poster: job.poster,
+    poster_phone: job.posterPhone,
+    poster_rating: 5.0,
+    poster_jobs: 0,
+    verified: true,
+    urgent: job.urgent,
+  }).select().single();
+  if (error) {
+    console.error('insertJob error:', error.message);
+    return null;
+  }
+  return {
+    id: data.id,
+    title: data.title,
+    pay: data.pay,
+    zone: data.zone,
+    note: data.note,
+    need: data.need,
+    applied: 0,
+    poster: data.poster,
+    posterPhone: data.poster_phone,
+    rating: data.poster_rating,
+    jobs: data.poster_jobs,
+    verified: data.verified,
+    urgent: data.urgent,
+  };
+}
+
 export async function insertJobApplication(jobId, phone) {
   if (!hasSupabase || typeof jobId !== 'number') return;
   const { error } = await supabase.from('job_applications').insert({ job_id: jobId, phone });

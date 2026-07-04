@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { PHONE_RE, genRef, scrollTop } from '../lib/helpers';
 import { ShareIcon } from '../components/Icons';
-import { fetchJobs, insertJobApplication, insertJobReport, insertJobRating, lineLoginUrl, notifyLine } from '../lib/db';
+import { fetchJobs, insertJob, insertJobApplication, insertJobReport, insertJobRating, lineLoginUrl, notifyLine } from '../lib/db';
 
 const TAB_DEFS = [{ k: 'all', l: 'ทั้งหมด' }, { k: 'need', l: 'ต้องการ' }, { k: 'give', l: 'แบ่งปัน' }, { k: 'job', l: 'จ้างงาน/รับงาน' }];
 const NEW_TYPES = [{ k: 'need', l: 'ขอ/ต้องการ' }, { k: 'give', l: 'มี/แบ่งปัน' }, { k: 'gig', l: 'หาอาสา' }];
@@ -66,6 +66,7 @@ const primaryBtn = { width: '100%', background: 'var(--primary)', color: '#fff',
 
 const emptyRequestForm = { name: '', phone: '', qty: '', note: '', err: '' };
 const emptyNewForm = { type: 'need', name: '', qty: '', zone: '', note: '', err: '' };
+const emptyJobForm = { title: '', pay: '', zone: '', note: '', need: '1', poster: '', phone: '', urgent: false, err: '' };
 
 // วงกลมย่อชื่อผู้โพสต์
 function Avatar({ name, size = 34 }) {
@@ -133,6 +134,8 @@ export default function Share() {
   const [doneRated, setDoneRated] = useState(false); // งานตัวอย่างถูกให้คะแนนแล้วหรือยัง
   const [rateStars, setRateStars] = useState(0);
   const [rateTags, setRateTags] = useState([]);
+  const [jobForm, setJobForm] = useState(emptyJobForm);
+  const [postedPhone, setPostedPhone] = useState(''); // เบอร์ที่เพิ่งลงประกาศ (ไว้ชวนเชื่อม LINE)
 
   const openDetail = (id) => {
     const it = donations.find((d) => d.id === id);
@@ -196,6 +199,36 @@ export default function Share() {
     }
     setRef(genRef('JOB', 5));
     setView('jobDone'); scrollTop();
+  };
+
+  // ---- ลงประกาศงานจ้าง ----
+  const openJobNew = () => { setJobForm(emptyJobForm); setView('jobNew'); scrollTop(); };
+  const submitJob = async () => {
+    if (submitting) return;
+    const need = parseInt(jobForm.need, 10);
+    if (!jobForm.title.trim()) { setJobForm((f) => ({ ...f, err: 'กรุณากรอกชื่องาน' })); return; }
+    if (!jobForm.poster.trim()) { setJobForm((f) => ({ ...f, err: 'กรุณากรอกชื่อผู้ว่าจ้าง' })); return; }
+    if (!PHONE_RE.test(jobForm.phone.trim())) { setJobForm((f) => ({ ...f, err: 'กรอกเบอร์โทร 10 หลักให้ถูกต้อง (ไว้รับแจ้งเตือน)' })); return; }
+    if (!(need >= 1)) { setJobForm((f) => ({ ...f, err: 'จำนวนคนที่รับต้องอย่างน้อย 1' })); return; }
+    setSubmitting(true);
+    setJobForm((f) => ({ ...f, err: '' }));
+    const payload = {
+      title: jobForm.title.trim(),
+      pay: jobForm.pay.trim() || 'ตามตกลง',
+      zone: jobForm.zone.trim() || 'ไม่ระบุพื้นที่',
+      note: jobForm.note.trim() || '-',
+      need,
+      poster: jobForm.poster.trim(),
+      posterPhone: jobForm.phone.trim(),
+      urgent: jobForm.urgent,
+    };
+    const saved = await insertJob(payload);
+    const newJob = saved || { ...payload, id: `local-${Date.now()}`, applied: 0, rating: 5.0, jobs: 0, verified: true };
+    setJobs((list) => [newJob, ...list]);
+    setSubmitting(false);
+    setPostedPhone(jobForm.phone.trim());
+    setTab('job');
+    setView('jobPosted'); scrollTop();
   };
 
   // ---- รายงานปัญหา ----
@@ -265,6 +298,11 @@ export default function Share() {
 
           {tab === 'job' && (
             <div>
+              {/* ปุ่มลงประกาศงาน */}
+              <button onClick={openJobNew} style={{ width: '100%', background: 'var(--primary)', color: '#fff', border: 'none', padding: 14, borderRadius: 12, fontWeight: 700, fontSize: 15.5, cursor: 'pointer', minHeight: 50, marginBottom: 16 }}>
+                + ลงประกาศจ้างงาน / หาคนช่วย
+              </button>
+
               {/* แถบความปลอดภัยช่วงภัยพิบัติ */}
               <div style={{ background: 'linear-gradient(180deg,#fff,#F4FBF8)', border: '1px solid var(--safe-soft)', borderRadius: 14, padding: '16px 18px', marginBottom: 18 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
@@ -504,6 +542,49 @@ export default function Share() {
             <div style={{ marginBottom: 20 }}><label htmlFor="nnnote" style={label}>หมายเหตุ</label><input id="nnnote" value={newForm.note} onChange={(e) => setNewForm((f) => ({ ...f, note: e.target.value }))} style={inputStyle} /></div>
             {newForm.err && <div role="alert" style={{ color: 'var(--danger)', fontSize: 14, marginBottom: 12 }}>{newForm.err}</div>}
             <button onClick={submitNew} style={primaryBtn}>เผยแพร่ประกาศ</button>
+          </div>
+        </div>
+      )}
+
+      {/* ---- ลงประกาศจ้างงาน ---- */}
+      {view === 'jobNew' && (
+        <div style={{ marginTop: 16 }}>
+          <button onClick={() => { setTab('job'); setView('list'); scrollTop(); }} style={{ background: 'none', border: 'none', color: 'var(--primary)', fontSize: 15, cursor: 'pointer', marginBottom: 14, fontWeight: 600 }}>← กลับรายการงาน</button>
+          <div style={card}>
+            <h2 style={{ fontSize: 21, marginBottom: 6 }}>ลงประกาศจ้างงาน</h2>
+            <p style={{ fontSize: 14, color: '#52607A', margin: '0 0 20px' }}>ประกาศงานให้คนในชุมชนมารับ · จะได้รับแจ้งเตือนทาง LINE ทันทีที่มีคนกดรับ</p>
+            <div style={{ marginBottom: 14 }}><label htmlFor="jtitle" style={label}>ชื่องาน *</label><input id="jtitle" value={jobForm.title} onChange={(e) => setJobForm((f) => ({ ...f, title: e.target.value }))} placeholder="เช่น ยกกระสอบทราย, พายเรือส่งของ" style={inputStyle} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+              <div><label htmlFor="jpay" style={label}>ค่าตอบแทน</label><input id="jpay" value={jobForm.pay} onChange={(e) => setJobForm((f) => ({ ...f, pay: e.target.value }))} placeholder="เช่น 400 บ./วัน" style={inputStyle} /></div>
+              <div><label htmlFor="jzone" style={label}>พื้นที่</label><input id="jzone" value={jobForm.zone} onChange={(e) => setJobForm((f) => ({ ...f, zone: e.target.value }))} placeholder="เช่น ต.สะเตง" style={inputStyle} /></div>
+            </div>
+            <div style={{ marginBottom: 14 }}><label htmlFor="jnote" style={label}>รายละเอียดงาน</label><input id="jnote" value={jobForm.note} onChange={(e) => setJobForm((f) => ({ ...f, note: e.target.value }))} placeholder="เช่น บ้านริมคลอง ต้องการด่วนบ่ายนี้" style={inputStyle} /></div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginBottom: 14 }}>
+              <div><label htmlFor="jposter" style={label}>ชื่อผู้ว่าจ้าง *</label><input id="jposter" value={jobForm.poster} onChange={(e) => setJobForm((f) => ({ ...f, poster: e.target.value }))} placeholder="เช่น ร้านวัสดุบ้านรมย์" style={inputStyle} /></div>
+              <div><label htmlFor="jneed" style={label}>รับกี่คน *</label><input id="jneed" type="number" min="1" inputMode="numeric" value={jobForm.need} onChange={(e) => setJobForm((f) => ({ ...f, need: e.target.value }))} style={inputStyle} /></div>
+            </div>
+            <div style={{ marginBottom: 16 }}><label htmlFor="jphone" style={label}>เบอร์โทรผู้ว่าจ้าง * (ไว้รับแจ้งเตือน LINE)</label><input id="jphone" type="tel" inputMode="numeric" value={jobForm.phone} onChange={(e) => setJobForm((f) => ({ ...f, phone: e.target.value }))} placeholder="เช่น 0812345678" style={inputStyle} /></div>
+            <button onClick={() => setJobForm((f) => ({ ...f, urgent: !f.urgent }))} style={{ ...optBtn(jobForm.urgent), marginBottom: 20 }}><span aria-hidden="true">{jobForm.urgent ? '●' : '○'}</span> ⚡ งานด่วน (ต้องการคนเร่งด่วน)</button>
+            {jobForm.err && <div role="alert" style={{ color: 'var(--danger)', fontSize: 14, marginBottom: 12 }}>{jobForm.err}</div>}
+            <button onClick={submitJob} disabled={submitting} style={{ ...primaryBtn, opacity: submitting ? 0.6 : 1 }}>{submitting ? 'กำลังเผยแพร่…' : 'เผยแพร่ประกาศงาน'}</button>
+          </div>
+        </div>
+      )}
+
+      {/* ---- ลงประกาศงานสำเร็จ + ชวนเชื่อม LINE ---- */}
+      {view === 'jobPosted' && (
+        <div style={{ marginTop: 20, background: '#fff', border: '1px solid var(--line)', borderRadius: 16, padding: '36px 28px', textAlign: 'center', boxShadow: '0 1px 3px rgba(16,24,40,.05)' }}>
+          <div style={{ fontSize: 44 }}>✅</div>
+          <h2 style={{ fontSize: 22, margin: '12px 0 8px' }}>เผยแพร่ประกาศงานแล้ว!</h2>
+          <p style={{ color: '#52607A', fontSize: 15.5, margin: '0 0 20px', lineHeight: 1.6 }}>ประกาศของคุณขึ้นในรายการงานแล้ว<br />เชื่อมต่อ LINE เพื่อรับแจ้งเตือนทันทีที่มีคนกดรับงาน</p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+            <a
+              href={PHONE_RE.test(postedPhone) ? lineLoginUrl(postedPhone) : undefined}
+              style={{ background: '#06C755', color: '#fff', border: 'none', padding: '13px 24px', borderRadius: 11, fontWeight: 700, fontSize: 15.5, cursor: 'pointer', minHeight: 48, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 8 }}
+            >
+              🔔 เชื่อมต่อ LINE รับแจ้งเตือน
+            </a>
+            <button onClick={() => { setTab('job'); setView('list'); scrollTop(); }} style={{ background: '#fff', border: '1.5px solid var(--line)', color: '#26344C', padding: '13px 24px', borderRadius: 11, fontWeight: 600, fontSize: 15.5, cursor: 'pointer', minHeight: 48 }}>ดูรายการงาน</button>
           </div>
         </div>
       )}
