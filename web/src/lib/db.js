@@ -374,6 +374,50 @@ export async function geminiStatus() {
   catch { return { ok: false, hasKey: false }; }
 }
 
+// ============================================================
+// สำมะโนครัวดิจิทัล (Digital House Card) — ลงทะเบียนผูกบ้านครั้งเดียว
+// ============================================================
+
+// ดึงข้อมูลบ้านที่เคยลงทะเบียนไว้ (ผูกด้วยเบอร์โทร) — คืน null ถ้ายังไม่เคยลงทะเบียน
+export async function fetchHousehold(phone) {
+  if (!hasSupabase || !phone) return null;
+  const { data, error } = await supabase.from('households').select('*').eq('phone', phone).maybeSingle();
+  if (error) { console.error('fetchHousehold error:', error.message); return null; }
+  if (!data) return null;
+  return {
+    phone: data.phone, lineUserId: data.line_user_id, name: data.name,
+    waterAccountNo: data.water_account_no, address: data.address,
+    district: data.district, subdistrict: data.subdistrict,
+    lat: data.lat, lng: data.lng, promptpayAccount: data.promptpay_account,
+    vulnerable: data.vulnerable, vulnerableTypes: data.vulnerable_types || [],
+    pdpaConsent: data.pdpa_consent, onboardedAt: data.onboarded_at,
+  };
+}
+
+// บันทึก/อัปเดตข้อมูลบ้าน (upsert ด้วยเบอร์โทร) — คืน true ถ้าสำเร็จ
+export async function upsertHousehold(h) {
+  if (!hasSupabase || !h.phone) return false;
+  const { error } = await supabase.from('households').upsert({
+    phone: h.phone,
+    line_user_id: h.lineUserId || null,
+    name: h.name || null,
+    water_account_no: h.waterAccountNo || null,
+    address: h.address || null,
+    district: h.district || null,
+    subdistrict: h.subdistrict || null,
+    lat: h.lat ?? null,
+    lng: h.lng ?? null,
+    promptpay_account: h.promptpayAccount || null,
+    vulnerable: Boolean(h.vulnerable),
+    vulnerable_types: h.vulnerableTypes || null,
+    pdpa_consent: Boolean(h.pdpaConsent),
+    onboarded_at: h.onboardedAt || new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'phone' });
+  if (error) { console.error('upsertHousehold error:', error.message); return false; }
+  return true;
+}
+
 // โปรไฟล์กลาง — บันทึก/อัปเดตลง Supabase (fire-and-forget)
 export function upsertProfile(profile) {
   if (!hasSupabase || !profile.phone) return;

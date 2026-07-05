@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { fetchDonations, insertDonation, upsertProfile, saveProfileServer, fetchMe, apiLogout, lineLoginUrl, MOCK_DONATIONS } from '../lib/db';
+import { fetchDonations, insertDonation, upsertProfile, saveProfileServer, fetchMe, apiLogout, lineLoginUrl, MOCK_DONATIONS, fetchHousehold, upsertHousehold } from '../lib/db';
 
 const AppContext = createContext(null);
 
@@ -9,6 +9,10 @@ function readPdpa() {
 
 function readProfile() {
   try { return JSON.parse(localStorage.getItem('yh_profile') || 'null') || {}; } catch { return {}; }
+}
+
+function readHousehold() {
+  try { return JSON.parse(localStorage.getItem('yh_household') || 'null'); } catch { return null; }
 }
 
 export function AppProvider({ children }) {
@@ -75,6 +79,34 @@ export function AppProvider({ children }) {
     });
   }, []);
 
+  // ---- สำมะโนครัวดิจิทัล (Digital House Card) — ลงทะเบียนผูกบ้านครั้งเดียว ----
+  const [household, setHousehold] = useState(readHousehold);
+  const [householdReady, setHouseholdReady] = useState(false);
+  const onboarded = Boolean(household && household.onboardedAt);
+
+  // โหลดข้อมูลบ้านจาก Supabase ทันทีที่รู้เบอร์โทร (ผูกกับ profile.phone เดิม)
+  useEffect(() => {
+    if (!profile.phone) { setHouseholdReady(true); return; }
+    let alive = true;
+    fetchHousehold(profile.phone).then((h) => {
+      if (!alive) return;
+      if (h) {
+        setHousehold(h);
+        try { localStorage.setItem('yh_household', JSON.stringify(h)); } catch { /* noop */ }
+      }
+      setHouseholdReady(true);
+    });
+    return () => { alive = false; };
+  }, [profile.phone]);
+
+  const saveHousehold = useCallback(async (patch) => {
+    const next = { ...(household || {}), ...patch, phone: profile.phone, name: profile.name, lineUserId: profile.lineUserId };
+    setHousehold(next);
+    try { localStorage.setItem('yh_household', JSON.stringify(next)); } catch { /* noop */ }
+    await upsertHousehold(next);
+    return next;
+  }, [household, profile.phone, profile.name, profile.lineUserId]);
+
   // เข้าสู่ระบบด้วย LINE (ประตูหลัก) — ไม่ต้องกรอกอะไรก่อน
   const login = useCallback(() => { window.location.href = lineLoginUrl(''); }, []);
   const logout = useCallback(async () => {
@@ -138,6 +170,7 @@ export function AppProvider({ children }) {
     donations, addDonation,
     profile, profileComplete, updateProfile, connectLineForProfile,
     auth, loggedIn, authReady, login, logout,
+    household, householdReady, onboarded, saveHousehold,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
