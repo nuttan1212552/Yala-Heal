@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Outlet, useLocation } from 'react-router-dom';
+import { useLocation } from 'react-router-dom';
 import TopBar from './TopBar';
 import Header from './Header';
 import Footer from './Footer';
 import Toast from './Toast';
 import PdpaBanner from './PdpaBanner';
 import InAppBrowserBanner from './InAppBrowserBanner';
+import AuthGate from './AuthGate';
 
 export default function Layout() {
   const [navOpen, setNavOpen] = useState(false);
@@ -21,7 +22,7 @@ export default function Layout() {
       <TopBar />
       <InAppBrowserBanner />
       <Header navOpen={navOpen} toggleNav={() => setNavOpen((v) => !v)} />
-      <Outlet />
+      <AuthGate />
       <Footer />
       <PdpaBanner />
       <Toast />

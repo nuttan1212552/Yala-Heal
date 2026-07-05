@@ -23,7 +23,7 @@ export default async function handler(req, res) {
       const lineRes = await fetch('https://api.line.me/v2/bot/message/push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${process.env.LINE_CHANNEL_ACCESS_TOKEN}` },
-        body: JSON.stringify({ to: data.line_user_id, messages: [{ type: 'text', text: `🔐 รหัส OTP ของคุณคือ ${otp}\nใช้ยืนยันการแจ้งเหตุใน Yala Heal (มีอายุ 5 นาที)` }] }),
+        body: JSON.stringify({ to: data.line_user_id, messages: [{ type: 'text', text: `🔐 รหัส OTP ของคุณคือ ${otp}\nใช้ยืนยันการแจ้งเหตุใน Yala Household (มีอายุ 5 นาที)` }] }),
       });
       if (lineRes.ok) { res.status(200).json({ ok: true, sent: true, channel: 'line', token }); return; }
       console.error('otp-request LINE push error:', await lineRes.text());

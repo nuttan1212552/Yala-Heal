@@ -19,12 +19,12 @@ export default function Header({ navOpen, toggleNav }) {
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, minWidth: 0 }}>
           <button
             onClick={() => navigate('/')}
-            aria-label="กลับหน้าแรก Yala Heal"
+            aria-label="กลับหน้าแรก Yala Household"
             style={{ display: 'flex', alignItems: 'center', gap: 11, background: 'none', border: 'none', cursor: 'pointer', padding: 0, minWidth: 0 }}
           >
             <BrandLogo size={44} />
             <span style={{ lineHeight: 1.1, textAlign: 'left' }}>
-              <span style={{ display: 'block', fontFamily: "'IBM Plex Sans Thai'", fontWeight: 700, fontSize: 19, color: 'var(--primary)' }}>Yala Heal</span>
+              <span style={{ display: 'block', fontFamily: "'IBM Plex Sans Thai'", fontWeight: 700, fontSize: 19, color: 'var(--primary)' }}>Yala Household</span>
               <span style={{ display: 'block', fontSize: 12, color: 'var(--muted)' }}>เทศบาลนครยะลา</span>
             </span>
           </button>

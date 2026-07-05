@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { PHONE_RE, genRef, scrollTop } from '../lib/helpers';
 import { ShareIcon } from '../components/Icons';
+import WelfareTracker from '../components/WelfareTracker';
 import { fetchJobs, insertJob, insertJobApplication, insertJobReport, insertJobRating, insertShareRequest, notifyLine } from '../lib/db';
 import { notifyCard, row, SITE } from '../lib/flex';
 
@@ -99,10 +100,12 @@ function TrustRow({ name, rating, jobs, verified }) {
 
 export default function Share() {
   const navigate = useNavigate();
-  const { donations, addDonation, showToast, profile, updateProfile, connectLineForProfile } = useApp();
+  const { donations, addDonation, showToast, profile, updateProfile, connectLineForProfile, hasVulnerable } = useApp();
   const [posterPhone, setPosterPhone] = useState(profile.phone || '');
+  const [searchParams] = useSearchParams();
 
-  const [tab, setTab] = useState('all');
+  const tabs = hasVulnerable ? [...TAB_DEFS, { k: 'welfare', l: '♿ สิทธิ์กายอุปกรณ์' }] : TAB_DEFS;
+  const [tab, setTab] = useState(searchParams.get('tab') === 'welfare' && hasVulnerable ? 'welfare' : 'all');
   const [view, setView] = useState('list');
   const [sel, setSel] = useState(null);
   const [reqForm, setReqForm] = useState(emptyRequestForm);
@@ -306,10 +309,12 @@ export default function Share() {
       {view === 'list' && (
         <div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', margin: '16px 0 20px' }}>
-            {TAB_DEFS.map((t) => <button key={t.k} onClick={() => setTab(t.k)} style={tabBtn(tab === t.k)}>{t.l}</button>)}
+            {tabs.map((t) => <button key={t.k} onClick={() => setTab(t.k)} style={tabBtn(tab === t.k)}>{t.l}</button>)}
           </div>
 
-          {tab !== 'job' && (
+          {tab === 'welfare' && <WelfareTracker />}
+
+          {tab !== 'job' && tab !== 'welfare' && (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill,minmax(260px,1fr))', gap: 14 }}>
                 {filtered.map((d) => {

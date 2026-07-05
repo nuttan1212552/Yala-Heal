@@ -188,6 +188,7 @@ export default function Relief() {
   const set = (patch) => setF((p) => ({ ...p, ...patch }));
   const [err, setErr] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [photoWarnAck, setPhotoWarnAck] = useState(false); // เตือนกฎหมายก่อนแนบภาพ
 
   const [grade, setGrade] = useState('');
   const [ref, setRef] = useState('');
@@ -350,8 +351,6 @@ export default function Relief() {
     setRef(newRef); setDoneMode('appeal'); setStage('done'); scrollTop();
     showToast('ส่งอุทธรณ์เรียบร้อย');
   };
-
-  const gInfo = GRADE_INFO[grade || '2'];
 
   return (
     <main style={{ maxWidth: 820, margin: '0 auto', padding: 'clamp(24px,4vw,44px) 20px 72px' }}>
@@ -587,6 +586,22 @@ export default function Relief() {
       {/* ===== STEP 6: อัปโหลดหลักฐาน (แยกช่วง/หลังน้ำท่วม) ===== */}
       {stage === 'photos' && (
         <div style={card}>
+          {/* เตือนกฎหมายก่อนแนบภาพ — ต้องกดยอมรับก่อน */}
+          {!photoWarnAck && (
+            <div role="dialog" aria-modal="true" style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(10,18,32,.62)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+              <div style={{ background: '#fff', borderRadius: 18, maxWidth: 440, width: '100%', padding: 'clamp(22px,4vw,30px)', boxShadow: '0 20px 60px rgba(0,0,0,.3)' }}>
+                <div style={{ textAlign: 'center', fontSize: 40, marginBottom: 8 }}>⚠️</div>
+                <h3 style={{ fontSize: 20, textAlign: 'center', marginBottom: 12, color: '#8B1A10' }}>ก่อนแนบภาพ · โปรดอ่าน</h3>
+                <div style={{ background: 'var(--danger-soft)', border: '1px solid var(--danger)', borderRadius: 12, padding: '14px 16px', fontSize: 14, color: '#7A241C', lineHeight: 1.7, marginBottom: 16 }}>
+                  ภาพที่แนบต้องเป็น <b>ภาพความเสียหายจริงของบ้านคุณ</b> เท่านั้น<br />
+                  การส่งภาพเท็จ ภาพปลอม ภาพจากที่อื่น หรือให้ข้อมูลอันเป็นเท็จเพื่อรับเงินเยียวยา ถือเป็น <b>ความผิดอาญาฐานฉ้อโกงและแจ้งความเท็จต่อเจ้าพนักงาน</b> ต้องคืนเงินและรับโทษตามกฎหมาย
+                </div>
+                <div style={{ fontSize: 12.5, color: '#52607A', lineHeight: 1.6, marginBottom: 18 }}>ระบบตรวจสอบเวลา-พิกัด (metadata) และตรวจภาพซ้ำ (image hashing) อัตโนมัติ เพื่อป้องกันการสวมสิทธิ์</div>
+                <button onClick={() => setPhotoWarnAck(true)} style={{ ...primaryBtn }}>เข้าใจแล้ว · ยืนยันจะแนบภาพจริง</button>
+                <button onClick={back} style={{ width: '100%', background: 'none', border: 'none', color: '#8592A3', fontSize: 13.5, cursor: 'pointer', marginTop: 10 }}>ย้อนกลับ</button>
+              </div>
+            </div>
+          )}
           <h2 style={{ fontSize: 21, marginBottom: 12 }}>รูปถ่ายหลักฐานความเสียหาย</h2>
 
           <div style={{ background: 'linear-gradient(180deg,#fff,#F4FBF8)', border: '1px solid var(--safe-soft)', borderRadius: 14, padding: '16px 18px', marginBottom: 18 }}>
@@ -702,46 +717,12 @@ export default function Relief() {
           <div style={{ fontSize: 14, color: '#52607A', marginBottom: 18 }}>เลขที่คำร้อง (Tracking ID): <b style={{ color: '#122A4A' }}>{ref}</b></div>
 
           {doneMode === 'confirm' && (
-            <>
-              <div style={{ background: gInfo.bg, border: '1px solid ' + gInfo.c, borderRadius: 12, padding: 16, marginBottom: 14, textAlign: 'left' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                  <div aria-hidden="true" style={{ width: 42, height: 42, borderRadius: 11, background: gInfo.c, color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 20, flex: 'none' }}>{grade}</div>
-                  <div><div style={{ fontWeight: 700, color: '#122A4A', fontSize: 16 }}>{gInfo.title}</div><div style={{ fontSize: 13, color: '#52607A' }}>{gInfo.sub} · Priority {gInfo.priority}</div></div>
-                </div>
-                <div style={{ fontSize: 13.5, color: '#33415A', lineHeight: 1.6 }}>ประมาณการวงเงิน: {gInfo.pay}</div>
-                <div style={{ fontSize: 12, color: '#8592A3', marginTop: 8, lineHeight: 1.55 }}>* {aiInfo?.source === 'gemini' ? 'ประเมินจากภาพโดย AI Gemini' : 'ประมาณการจากระดับน้ำ'} — เจ้าหน้าที่รัฐเป็นผู้พิจารณาอนุมัติขั้นสุดท้าย (Human-in-the-Loop)</div>
+            <div style={{ background: 'var(--safe-soft)', border: '1px solid var(--safe)', borderRadius: 12, padding: 16, marginBottom: 14, textAlign: 'left' }}>
+              <div style={{ fontWeight: 700, color: '#0E6B4A', fontSize: 15.5, marginBottom: 6 }}>✅ ส่งคำร้องและรูปหลักฐานเรียบร้อย</div>
+              <div style={{ fontSize: 13.5, color: '#33415A', lineHeight: 1.65 }}>
+                เจ้าหน้าที่เทศบาลกำลังตรวจสอบความเสียหายของบ้านคุณ เมื่อพิจารณาอนุมัติแล้ว เงินเยียวยาจะโอนตรงเข้าพร้อมเพย์ที่ผูกไว้ และแจ้งเตือนผ่าน LINE — ระบบจะแจ้งผลให้ทราบทุกขั้นตอน ไม่ต้องเดินทางมาที่เทศบาล
               </div>
-
-              {aiInfo && (
-                <div style={{ background: aiInfo.source === 'gemini' ? '#F1F6FF' : 'var(--bg-alt)', border: `1px solid ${aiInfo.source === 'gemini' ? '#C9D9F5' : 'var(--line)'}`, borderRadius: 12, padding: 14, marginBottom: 14, textAlign: 'left' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: aiInfo.source === 'gemini' ? 10 : 4 }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: aiInfo.source === 'gemini' ? '#1A56DB' : '#8592A3', color: '#fff', fontSize: 12.5, fontWeight: 700, padding: '4px 10px', borderRadius: 100 }}>
-                      {aiInfo.source === 'gemini' ? '🔷 วิเคราะห์ด้วย Gemini' : '⚙️ ประเมินจากระดับน้ำ'}
-                    </span>
-                    {aiInfo.source === 'gemini' && <span style={{ fontSize: 12.5, color: '#52607A' }}>ความมั่นใจ {aiInfo.confidence}% · ตรวจ {aiInfo.imageCount} รูป · {aiInfo.model}</span>}
-                  </div>
-                  {aiInfo.source === 'gemini' ? (
-                    <>
-                      {aiInfo.visual?.length > 0 && (
-                        <div style={{ marginBottom: 8 }}>
-                          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#122A4A', marginBottom: 4 }}>สิ่งที่ AI เห็นในภาพ</div>
-                          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: '#41506B', lineHeight: 1.65 }}>{aiInfo.visual.map((v, i) => <li key={i}>{v}</li>)}</ul>
-                        </div>
-                      )}
-                      {aiInfo.reasons?.length > 0 && (
-                        <div>
-                          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#122A4A', marginBottom: 4 }}>เหตุผลการจัดระดับ</div>
-                          <ul style={{ margin: 0, paddingLeft: 18, fontSize: 13, color: '#41506B', lineHeight: 1.65 }}>{aiInfo.reasons.map((v, i) => <li key={i}>{v}</li>)}</ul>
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <div style={{ fontSize: 12.5, color: '#52607A', lineHeight: 1.55 }}>เหตุผล: {AI_REASON_TH[aiInfo.reason] || aiInfo.reason || 'ไม่ทราบ'} — จึงใช้เกณฑ์ระดับน้ำแทน</div>
-                  )}
-                </div>
-              )}
-              <button onClick={() => { setErr(''); setAppealText(''); setStage('appeal'); scrollTop(); }} style={{ ...ghostBtn, width: '100%', marginBottom: 10 }}>ไม่เห็นด้วยกับการประเมิน · ยื่นอุทธรณ์</button>
-            </>
+            </div>
           )}
           <div style={{ background: '#F4F6F9', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#52607A', marginBottom: 18, lineHeight: 1.6 }}>
             บันทึกเลข Tracking ID ไว้ตรวจสอบสถานะได้ตลอด 24 ชม.: ยื่นคำร้องแล้ว → ตรวจสอบเอกสาร → ช่างลงพื้นที่ → อนุมัติจ่ายเงิน → โอนเงินสำเร็จ

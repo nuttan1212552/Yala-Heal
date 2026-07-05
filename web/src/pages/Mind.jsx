@@ -116,7 +116,7 @@ export default function Mind() {
     showToast(urgent ? 'จองคิวด่วนสำเร็จ ทีมจะติดต่อกลับโดยเร็ว' : 'จองคิวสำเร็จ');
     insertMindRequest({ ref: newRef, phone, urgent, position: pos });
     updateProfile({ phone });
-    notifyLine(phone, `💚 จองคิวทีมดูแลใจแล้ว | Yala Heal\nเลขอ้างอิง: ${newRef}\n${urgent ? '⚡ คิวด่วน — ทีมจะติดต่อกลับโดยเร็ว' : `คิวที่ ${pos} · รอประมาณ ${wait} นาที`}\nหากเร่งด่วนโทร 1323 ได้ทันที`);
+    notifyLine(phone, `💚 จองคิวทีมดูแลใจแล้ว | Yala Household\nเลขอ้างอิง: ${newRef}\n${urgent ? '⚡ คิวด่วน — ทีมจะติดต่อกลับโดยเร็ว' : `คิวที่ ${pos} · รอประมาณ ${wait} นาที`}\nหากเร่งด่วนโทร 1323 ได้ทันที`);
   };
 
   const options = (!done && QS[step]) ? QS[step].opts : [];
