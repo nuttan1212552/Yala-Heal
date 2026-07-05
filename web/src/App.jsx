@@ -6,6 +6,7 @@ import Share from './pages/Share';
 import Relief from './pages/Relief';
 import Onboarding from './pages/Onboarding';
 import CivicWallet from './pages/CivicWallet';
+import Payments from './pages/Payments';
 import Staff from './pages/Staff';
 
 export default function App() {
@@ -18,6 +19,7 @@ export default function App() {
         <Route path="relief" element={<Relief />} />
         <Route path="onboarding" element={<Onboarding />} />
         <Route path="civic-wallet" element={<CivicWallet />} />
+        <Route path="payments" element={<Payments />} />
         <Route path="staff" element={<Staff />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

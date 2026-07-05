@@ -4,7 +4,7 @@
 // ============================================================
 
 export const SITE = 'https://yala-heal.vercel.app';
-const BRAND = 'Yala Heal · เทศบาลนครยะลา';
+const BRAND = 'Yala Household · เทศบาลนครยะลา';
 
 // แถวข้อมูล 1 บรรทัด (หัวข้อซ้าย · ค่าขวา)
 export function row(label, value, valueColor = '#122A4A') {

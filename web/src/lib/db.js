@@ -453,6 +453,148 @@ export function upsertProfile(profile) {
   }).then(({ error }) => { if (error) console.error('upsertProfile error:', error.message); });
 }
 
+// ============================================================
+// สมาชิกในครัวเรือน (household_members) — กรอกตอนลงทะเบียน
+// ============================================================
+
+export async function fetchHouseholdMembers(phone) {
+  if (!hasSupabase || !phone) return [];
+  const { data, error } = await supabase
+    .from('household_members')
+    .select('*')
+    .eq('household_phone', phone)
+    .order('id', { ascending: true });
+  if (error) { console.error('fetchHouseholdMembers error:', error.message); return []; }
+  return (data || []).map((m) => ({
+    id: m.id, fullName: m.full_name, nationalId: m.national_id, relation: m.relation,
+    isHead: m.is_head, vulnerableTypes: m.vulnerable_types || [],
+  }));
+}
+
+// แทนที่รายชื่อสมาชิกทั้งชุด (ลบเดิม → ใส่ใหม่) — ให้ตรงกับที่กรอกล่าสุดเสมอ
+export async function replaceHouseholdMembers(phone, members) {
+  if (!hasSupabase || !phone) return false;
+  await supabase.from('household_members').delete().eq('household_phone', phone);
+  if (!members || !members.length) return true;
+  const rows = members.map((m) => ({
+    household_phone: phone,
+    full_name: m.fullName || m.name || '',
+    national_id: (m.nationalId || '').replace(/\D/g, '') || null,
+    relation: m.relation || null,
+    is_head: Boolean(m.isHead),
+    vulnerable_types: (m.vulnerableTypes && m.vulnerableTypes.length) ? m.vulnerableTypes : null,
+  }));
+  const { error } = await supabase.from('household_members').insert(rows);
+  if (error) { console.error('replaceHouseholdMembers error:', error.message); return false; }
+  return true;
+}
+
+// ============================================================
+// การชำระบิลเมือง (payments) — เก็บประวัติจริง
+// ============================================================
+
+export async function insertPayment(p) {
+  if (!hasSupabase) return { ...p, id: Date.now(), created_at: new Date().toISOString() };
+  const { data, error } = await supabase.from('payments').insert({
+    phone: p.phone,
+    household_phone: p.householdPhone || p.phone,
+    bill_key: p.billKey,
+    label: p.label,
+    amount: p.amount,
+    ref: p.ref,
+    method: p.method || 'promptpay',
+    status: p.status || 'ชำระสำเร็จ',
+  }).select().single();
+  if (error) { console.error('insertPayment error:', error.message); return { ...p, id: Date.now(), created_at: new Date().toISOString() }; }
+  return data;
+}
+
+export async function fetchPayments(phone) {
+  if (!hasSupabase || !phone) return [];
+  const { data, error } = await supabase
+    .from('payments')
+    .select('*')
+    .eq('phone', phone)
+    .order('created_at', { ascending: false });
+  if (error) { console.error('fetchPayments error:', error.message); return []; }
+  return data || [];
+}
+
+// ============================================================
+// สิทธิ์กายอุปกรณ์/สวัสดิการเปราะบาง (welfare_requests)
+// ============================================================
+
+export async function insertWelfareRequest(r) {
+  const now = new Date().toISOString();
+  const timeline = [{ status: 'ยื่นคำขอ', at: now }];
+  if (!hasSupabase) return { id: Date.now(), ref: r.ref, status: 'ยื่นคำขอ', timeline, created_at: now, ...r };
+  const { data, error } = await supabase.from('welfare_requests').insert({
+    ref: r.ref,
+    phone: r.phone,
+    household_phone: r.householdPhone || r.phone,
+    requester_name: r.requesterName || null,
+    beneficiary_name: r.beneficiaryName || null,
+    item_key: r.itemKey,
+    item_label: r.itemLabel,
+    note: r.note || null,
+    by_caregiver: Boolean(r.byCaregiver),
+    status: 'ยื่นคำขอ',
+    timeline,
+  }).select().single();
+  if (error) { console.error('insertWelfareRequest error:', error.message); return { id: Date.now(), ref: r.ref, status: 'ยื่นคำขอ', timeline, created_at: now, ...r }; }
+  return data;
+}
+
+export async function fetchWelfareRequests(phone) {
+  if (!hasSupabase || !phone) return [];
+  const { data, error } = await supabase
+    .from('welfare_requests')
+    .select('*')
+    .eq('phone', phone)
+    .order('created_at', { ascending: false });
+  if (error) { console.error('fetchWelfareRequests error:', error.message); return []; }
+  return data || [];
+}
+
+// ฝั่งเจ้าหน้าที่ — ดึงคำขอทั้งหมดเพื่ออนุมัติ/อัปเดตสถานะ
+export async function fetchAllWelfareRequests() {
+  if (!hasSupabase) return [];
+  const { data, error } = await supabase
+    .from('welfare_requests')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error) { console.error('fetchAllWelfareRequests error:', error.message); return []; }
+  return data || [];
+}
+
+// อัปเดตสถานะคำขอ + ต่อ timeline (ให้ประชาชนเห็นเหมือนติดตามพัสดุ)
+export async function updateWelfareStatus(id, status, oldTimeline = []) {
+  if (!hasSupabase) return false;
+  const timeline = [...(oldTimeline || []), { status, at: new Date().toISOString() }];
+  const { error } = await supabase.from('welfare_requests')
+    .update({ status, timeline, updated_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) { console.error('updateWelfareStatus error:', error.message); return false; }
+  return true;
+}
+
+// ============================================================
+// ฝั่งเจ้าหน้าที่ — ดึงบ้านทั้งหมด (ไว้ทำแผนที่หมุดเปราะบาง realtime)
+// ============================================================
+
+export async function fetchAllHouseholds() {
+  if (!hasSupabase) return [];
+  const { data, error } = await supabase
+    .from('households')
+    .select('phone, name, address, district, subdistrict, lat, lng, vulnerable, vulnerable_types, onboarded_at');
+  if (error) { console.error('fetchAllHouseholds error:', error.message); return []; }
+  return (data || []).map((h) => ({
+    phone: h.phone, name: h.name, address: h.address, district: h.district, subdistrict: h.subdistrict,
+    lat: h.lat, lng: h.lng, vulnerable: h.vulnerable, vulnerableTypes: h.vulnerable_types || [], onboardedAt: h.onboarded_at,
+  }));
+}
+
 // ขอ OTP — ส่งเข้า LINE ถ้าเบอร์นี้เชื่อมไว้ ไม่งั้นตกไปโหมดสาธิต (123456)
 export async function requestOtp(phone) {
   try {

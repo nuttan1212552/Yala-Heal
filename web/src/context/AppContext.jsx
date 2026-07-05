@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import { fetchDonations, insertDonation, upsertProfile, saveProfileServer, fetchMe, apiLogout, lineLoginUrl, MOCK_DONATIONS, fetchHousehold, upsertHousehold } from '../lib/db';
+import { fetchDonations, insertDonation, upsertProfile, saveProfileServer, fetchMe, apiLogout, lineLoginUrl, MOCK_DONATIONS, fetchHousehold, upsertHousehold, fetchHouseholdMembers, replaceHouseholdMembers } from '../lib/db';
 
 const AppContext = createContext(null);
 
@@ -57,7 +57,7 @@ export function AppProvider({ children }) {
   }, []);
 
   useEffect(() => {
-    document.title = 'Yala Heal · เทศบาลนครยะลา';
+    document.title = 'Yala Household · เทศบาลนครยะลา';
   }, []);
 
   // ---- โปรไฟล์กลาง (ลงทะเบียนครั้งเดียว ใช้ทั้งเว็บ) ----
@@ -82,30 +82,47 @@ export function AppProvider({ children }) {
   // ---- สำมะโนครัวดิจิทัล (Digital House Card) — ลงทะเบียนผูกบ้านครั้งเดียว ----
   const [household, setHousehold] = useState(readHousehold);
   const [householdReady, setHouseholdReady] = useState(false);
+  const [members, setMembers] = useState([]); // สมาชิกในครัวเรือน
   const onboarded = Boolean(household && household.onboardedAt);
+  // มีสมาชิกเปราะบางไหม (คำนวณจากรายชื่อสมาชิก — ใช้เปิดฟีเจอร์กายอุปกรณ์)
+  const hasVulnerable = Boolean((household && household.vulnerable) || members.some((m) => (m.vulnerableTypes || []).length > 0));
 
-  // โหลดข้อมูลบ้านจาก Supabase ทันทีที่รู้เบอร์โทร (ผูกกับ profile.phone เดิม)
+  // โหลดข้อมูลบ้าน + สมาชิก จาก Supabase ทันทีที่รู้เบอร์โทร (ผูกกับ profile.phone เดิม)
   useEffect(() => {
     if (!profile.phone) { setHouseholdReady(true); return; }
     let alive = true;
-    fetchHousehold(profile.phone).then((h) => {
+    Promise.all([fetchHousehold(profile.phone), fetchHouseholdMembers(profile.phone)]).then(([h, ms]) => {
       if (!alive) return;
       if (h) {
         setHousehold(h);
         try { localStorage.setItem('yh_household', JSON.stringify(h)); } catch { /* noop */ }
       }
+      if (ms && ms.length) setMembers(ms);
       setHouseholdReady(true);
     });
     return () => { alive = false; };
   }, [profile.phone]);
 
   const saveHousehold = useCallback(async (patch) => {
-    const next = { ...(household || {}), ...patch, phone: patch.phone || profile.phone, name: patch.name || profile.name, lineUserId: profile.lineUserId };
+    const next = {
+      ...(household || {}), ...patch,
+      phone: patch.phone || profile.phone, name: patch.name || profile.name, lineUserId: profile.lineUserId,
+      // ตั้ง onboardedAt ทันทีในเครื่อง เพื่อให้ AuthGate รู้ว่าลงทะเบียนบ้านเสร็จแล้ว (ไม่เด้งวน)
+      onboardedAt: patch.onboardedAt || (household && household.onboardedAt) || new Date().toISOString(),
+    };
     setHousehold(next);
     try { localStorage.setItem('yh_household', JSON.stringify(next)); } catch { /* noop */ }
     await upsertHousehold(next);
     return next;
   }, [household, profile.phone, profile.name, profile.lineUserId]);
+
+  // บันทึกรายชื่อสมาชิกครัวเรือน (แทนที่ทั้งชุด)
+  const saveMembers = useCallback(async (list) => {
+    const phone = profile.phone || (household && household.phone);
+    setMembers(list);
+    if (phone) await replaceHouseholdMembers(phone, list);
+    return list;
+  }, [profile.phone, household]);
 
   // เข้าสู่ระบบด้วย LINE (ประตูหลัก) — ไม่ต้องกรอกอะไรก่อน
   const login = useCallback(() => { window.location.href = lineLoginUrl(''); }, []);
@@ -171,6 +188,7 @@ export function AppProvider({ children }) {
     profile, profileComplete, updateProfile, connectLineForProfile,
     auth, loggedIn, authReady, login, logout,
     household, householdReady, onboarded, saveHousehold,
+    members, saveMembers, hasVulnerable,
   };
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

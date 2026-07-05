@@ -8,10 +8,10 @@ export default function Footer() {
         <div style={{ flex: '1 1 260px', maxWidth: 360 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 11, marginBottom: 14 }}>
             <BrandLogo size={40} />
-            <span style={{ fontFamily: "'IBM Plex Sans Thai'", fontWeight: 700, fontSize: 18, color: 'var(--primary)' }}>Yala Heal</span>
+            <span style={{ fontFamily: "'IBM Plex Sans Thai'", fontWeight: 700, fontSize: 18, color: 'var(--primary)' }}>Yala Household</span>
           </div>
           <p style={{ fontSize: 14.5, lineHeight: 1.6, color: '#52607A', margin: '0 0 16px' }}>
-            ระบบผู้ช่วยยามภัยพิบัติผ่าน LINE Official Account เพื่อประชาชนเทศบาลนครยะลา
+            บริการครัวเรือนดิจิทัลผ่าน LINE Official Account เพื่อประชาชนเทศบาลนครยะลา
           </p>
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
             <BrandLogo size={64} />
@@ -39,7 +39,7 @@ export default function Footer() {
         </div>
       </div>
       <div style={{ maxWidth: 1180, margin: '32px auto 0', paddingTop: 22, borderTop: '1px solid var(--line)', fontSize: 13, color: '#8592A3', display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'space-between' }}>
-        <span>© 2568 Yala Heal · เว็บไซต์ต้นแบบเพื่อการนำเสนอ (ข้อมูลตัวอย่าง)</span>
+        <span>© 2569 Yala Household · เว็บไซต์ต้นแบบเพื่อการนำเสนอ (ข้อมูลตัวอย่าง)</span>
         <span>ออกแบบเพื่อประชาชนเทศบาลนครยะลา</span>
       </div>
     </footer>
