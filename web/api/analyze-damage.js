@@ -4,7 +4,7 @@
 //
 // ต้องตั้ง env: GEMINI_API_KEY (ขอฟรีที่ https://aistudio.google.com/app/apikey)
 
-const MODEL = 'gemini-2.0-flash';
+const MODEL = 'gemini-2.5-flash';
 
 const CRITERIA = `เกณฑ์จัดระดับความเสียหายจากอุทกภัย (ระเบียบ ปภ.):
 - ระดับ 1 เล็กน้อย (Minor): คราบน้ำต่ำกว่าระดับเข่า โคลนผิวเผินที่ล้างทำความสะอาดออกได้ โครงสร้างหลักไม่เสียหาย (เสียหาย < 30%)
