@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 import { MindIcon, ShareIcon, ReliefIcon } from '../components/Icons';
 import ProfileCard from '../components/ProfileCard';
+import { useApp } from '../context/AppContext';
 
 const securityItems = [
   { title: 'AI แนะนำ ไม่ใช่ AI ตัดสิน', text: 'มนุษย์เป็นผู้อนุมัติสุดท้ายเสมอ ในทุกเรื่องที่กระทบสิทธิ์ประชาชน' },
@@ -25,6 +26,9 @@ const iconWrap = (bg) => ({ width: 52, height: 52, borderRadius: 13, background:
 
 export default function Home() {
   const navigate = useNavigate();
+  const { onboarded, loggedIn } = useApp();
+
+  const goHouseCard = () => navigate(onboarded ? '/civic-wallet' : '/onboarding');
 
   return (
     <main>
@@ -54,9 +58,25 @@ export default function Home() {
       {/* FEATURE PICKER */}
       <section id="features" style={{ padding: 'clamp(52px,7vw,84px) 20px' }}>
         <div style={{ maxWidth: 1180, margin: '0 auto' }}>
-          <div style={{ maxWidth: 760, margin: '0 auto 36px' }}>
+          <div style={{ maxWidth: 760, margin: '0 auto 20px' }}>
             <ProfileCard />
           </div>
+          {loggedIn && (
+            <div style={{ maxWidth: 760, margin: '0 auto 36px' }}>
+              <button onClick={goHouseCard} className="reveal" style={{
+                width: '100%', textAlign: 'left', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 16,
+                background: 'linear-gradient(180deg,#fff,#F4FBF8)', border: '1px solid var(--safe-soft)', borderRadius: 16,
+                padding: '20px 24px', boxShadow: '0 1px 3px rgba(16,24,40,.05)',
+              }}>
+                <span aria-hidden="true" style={{ fontSize: 30, flex: 'none' }}>🏡</span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 18, color: '#122A4A' }}>{onboarded ? 'กระเป๋าเมืองดิจิทัล & สิทธิ์ของคุณ' : 'สำมะโนครัวดิจิทัล & รักษาสิทธิ์เมือง'}</div>
+                  <div style={{ fontSize: 14, color: '#52607A' }}>{onboarded ? 'ดูบิลค่าน้ำ/ขยะ/ภาษี และยื่นเยียวยาคลิกเดียว' : 'ลงทะเบียนผูกบ้านครั้งเดียว เพื่อรับเงินเยียวยาอัตโนมัติเมื่อเกิดภัย'}</div>
+                </div>
+                <span aria-hidden="true" style={{ color: 'var(--primary)', fontWeight: 700, fontSize: 15, flex: 'none' }}>{onboarded ? 'เข้าดู →' : 'เริ่มลงทะเบียน →'}</span>
+              </button>
+            </div>
+          )}
           <div className="reveal" style={{ textAlign: 'center', maxWidth: 680, margin: '0 auto 40px' }}>
             <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--primary)', marginBottom: 10 }}>เลือกบริการ</div>
             <h2 style={{ fontSize: 'clamp(26px,3.6vw,40px)', lineHeight: 1.16, marginBottom: 12 }}>3 บริการหลัก กดเข้าใช้งานได้เลย</h2>
