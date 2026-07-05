@@ -132,6 +132,27 @@ export async function insertReliefClaim(claim) {
   if (error) console.error('insertReliefClaim error:', error.message);
 }
 
+// ---- หน้าเจ้าหน้าที่เทศบาล (Staff Dashboard) ----
+// ดึงคำร้องเยียวยาทั้งหมด พร้อมผล AI เพื่อให้เจ้าหน้าที่ตรวจสอบ/อนุมัติ (Human-in-the-loop)
+export async function fetchReliefClaims() {
+  if (!hasSupabase) return [];
+  const { data, error } = await supabase
+    .from('relief_claims')
+    .select('id, ref, tracking_id, name, national_id, phone, grade, water_level, mode, district, subdistrict, address, lat, lng, payment_method, priority, ai_grade, ai_result, status, damage_items, photos_after, photo_critical, created_at')
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error) { console.error('fetchReliefClaims error:', error.message); return []; }
+  return data || [];
+}
+
+// เจ้าหน้าที่กดอัปเดตสถานะคำร้อง (เช่น อนุมัติ / ตีกลับ)
+export async function updateReliefStatus(id, status) {
+  if (!hasSupabase) return false;
+  const { error } = await supabase.from('relief_claims').update({ status }).eq('id', id);
+  if (error) { console.error('updateReliefStatus error:', error.message); return false; }
+  return true;
+}
+
 // อัปโหลดรูปหลักฐานความเสียหายขึ้น Supabase Storage (bucket: relief-evidence)
 // - ไม่มี Supabase → คืน null (ฝั่ง UI ใช้พรีวิวในเครื่องแทน)
 // - อัปโหลดพลาด → โยน error พร้อมข้อความ (ฝั่ง UI เอาไปแสดงให้ผู้ใช้เห็นได้)

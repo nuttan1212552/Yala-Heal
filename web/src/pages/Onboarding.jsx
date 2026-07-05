@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { scrollTop, stepBars } from '../lib/helpers';
+import { scrollTop, stepBars, PHONE_RE } from '../lib/helpers';
 import MapPicker from '../components/MapPicker';
 
 const VULNERABLE_TYPES = ['ผู้สูงอายุ (60 ปีขึ้นไป)', 'ผู้พิการ', 'ผู้ป่วยติดเตียง', 'เด็กเล็ก (แรกเกิด-6 ปี)'];
@@ -13,15 +13,17 @@ const primaryBtn = { width: '100%', background: 'var(--primary)', color: '#fff',
 const ghostBtn = { background: '#fff', border: '1.5px solid var(--line)', color: '#26344C', padding: '13px 20px', borderRadius: 11, fontWeight: 600, fontSize: 15.5, cursor: 'pointer', minHeight: 50 };
 const optBtn = (on) => ({ textAlign: 'left', cursor: 'pointer', padding: '13px 14px', borderRadius: 11, fontSize: 15, fontWeight: 600, minHeight: 50, fontFamily: 'inherit', border: on ? '1.5px solid var(--primary)' : '1.5px solid var(--line)', background: on ? 'var(--primary-soft)' : '#fff', color: on ? 'var(--primary)' : '#33415A' });
 
-const STEPS = ['pdpa', 'water', 'location', 'vulnerable'];
-const STEP_LABELS = ['ยินยอมข้อมูล', 'เลขที่บ้าน', 'ปักหมุดบ้าน', 'กลุ่มเปราะบาง'];
+const STEPS = ['start', 'pdpa', 'water', 'location', 'vulnerable'];
+const STEP_LABELS = ['เริ่มต้น', 'ยินยอมข้อมูล', 'เลขที่บ้าน', 'ปักหมุดบ้าน', 'กลุ่มเปราะบาง'];
 
 export default function Onboarding() {
   const navigate = useNavigate();
-  const { showToast, profile, updateProfile, household, saveHousehold } = useApp();
+  const { showToast, profile, auth, updateProfile, household, saveHousehold } = useApp();
 
-  const [stage, setStage] = useState('pdpa');
+  const [stage, setStage] = useState('start');
   const [f, setF] = useState({
+    name: profile.name || auth?.name || '',
+    phone: profile.phone || '',
     pdpaConsent: false,
     waterAccountNo: household?.waterAccountNo || '',
     address: household?.address || '',
@@ -42,6 +44,11 @@ export default function Onboarding() {
   const back = () => (stepIdx > 0 ? go(STEPS[stepIdx - 1]) : navigate('/'));
 
   const validate = () => {
+    if (stage === 'start') {
+      if (!f.name.trim()) return 'กรุณากรอกชื่อ-นามสกุลหัวหน้าครัวเรือน';
+      if (!PHONE_RE.test(f.phone.trim())) return 'กรุณากรอกเบอร์โทร 10 หลักให้ถูกต้อง';
+      return '';
+    }
     if (stage === 'pdpa' && !f.pdpaConsent) return 'กรุณายอมรับความยินยอมเพื่อเชื่อมโยงข้อมูลค่าน้ำ/สวัสดิการก่อน';
     if (stage === 'water' && !f.address.trim()) return 'กรุณากรอกที่อยู่บ้าน (เลขที่บ้าน/หมู่/ชุมชน)';
     if (stage === 'location') {
@@ -55,6 +62,7 @@ export default function Onboarding() {
   const onNext = () => {
     const e = validate();
     if (e) { setErr(e); return; }
+    if (stage === 'start') updateProfile({ name: f.name.trim(), phone: f.phone.trim() });
     if (stepIdx < STEPS.length - 1) go(STEPS[stepIdx + 1]);
   };
 
@@ -67,6 +75,7 @@ export default function Onboarding() {
     if (saving) return;
     setSaving(true);
     await saveHousehold({
+      name: f.name.trim(), phone: f.phone.trim(),
       waterAccountNo: f.waterAccountNo.trim(),
       address: f.address.trim(),
       lat: f.lat, lng: f.lng,
@@ -75,7 +84,7 @@ export default function Onboarding() {
       vulnerableTypes: hasVulnerable ? f.vulnerableTypes : [],
       pdpaConsent: true,
     });
-    updateProfile({ zone: profile.zone || f.address.trim() });
+    updateProfile({ name: f.name.trim(), phone: f.phone.trim(), zone: profile.zone || f.address.trim() });
     setSaving(false);
     showToast('ลงทะเบียนบ้านดิจิทัลสำเร็จ 🏡');
     navigate('/civic-wallet');
@@ -92,6 +101,33 @@ export default function Onboarding() {
       <div style={{ display: 'flex', gap: 6, margin: '18px 0 6px' }}>{bars.map((s, i) => <div key={i} style={s} />)}</div>
       <div style={{ fontSize: 13, color: '#52607A', marginBottom: 20 }}>ขั้นที่ {stepIdx + 1}/{STEPS.length} · {STEP_LABELS[stepIdx]}</div>
 
+      {stage === 'start' && (
+        <div style={card}>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', background: 'var(--primary-soft)', borderRadius: 12, padding: '14px 16px', marginBottom: 20 }}>
+            <span aria-hidden="true" style={{ fontSize: 22, flex: 'none' }}>🏠</span>
+            <div style={{ fontSize: 14, color: '#243B5E', lineHeight: 1.6 }}>
+              <b>ลงทะเบียน 1 ครัวเรือน = 1 บัญชี</b><br />
+              กรุณาลงทะเบียนโดย <b>หัวหน้าครัวเรือน</b> (ผู้มีชื่อเป็นเจ้าบ้าน) หนึ่งบ้านผูกได้หนึ่งบัญชีเท่านั้น เพื่อป้องกันการสวมสิทธิ์และการรับเงินเยียวยาซ้ำซ้อน
+            </div>
+          </div>
+          <h2 style={{ fontSize: 21, marginBottom: 6 }}>ข้อมูลหัวหน้าครัวเรือน</h2>
+          <p style={{ color: '#52607A', fontSize: 15, margin: '0 0 16px', lineHeight: 1.6 }}>ยืนยันตัวตนด้วย LINE แล้ว · กรอกชื่อและเบอร์ติดต่อของบ้านหลังนี้ (ใช้เป็นบัญชีประจำครัวเรือน)</p>
+          <div style={{ marginBottom: 14 }}>
+            <label style={label} htmlFor="ob-name">ชื่อ-นามสกุล หัวหน้าครัวเรือน</label>
+            <input id="ob-name" value={f.name} onChange={(e) => set({ name: e.target.value })} placeholder="ชื่อจริง-นามสกุล" style={inputStyle} />
+          </div>
+          <div>
+            <label style={label} htmlFor="ob-phone">เบอร์โทรศัพท์ติดต่อ</label>
+            <input id="ob-phone" type="tel" inputMode="numeric" maxLength={10} value={f.phone} onChange={(e) => set({ phone: e.target.value.replace(/\D/g, '') })} placeholder="เช่น 0812345678" style={inputStyle} />
+          </div>
+          {err && <div role="alert" style={{ color: 'var(--danger)', fontSize: 14, margin: '12px 0 0' }}>{err}</div>}
+          <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
+            <button onClick={back} style={ghostBtn}>ยกเลิก</button>
+            <button onClick={onNext} style={{ ...primaryBtn, flex: 1 }}>ถัดไป</button>
+          </div>
+        </div>
+      )}
+
       {stage === 'pdpa' && (
         <div style={card}>
           <h2 style={{ fontSize: 21, marginBottom: 6 }}>ความยินยอมเชื่อมโยงข้อมูล (PDPA)</h2>
@@ -103,7 +139,7 @@ export default function Onboarding() {
           </button>
           {err && <div role="alert" style={{ color: 'var(--danger)', fontSize: 14, margin: '12px 0 0' }}>{err}</div>}
           <div style={{ display: 'flex', gap: 10, marginTop: 18 }}>
-            <button onClick={back} style={ghostBtn}>ยกเลิก</button>
+            <button onClick={back} style={ghostBtn}>ย้อนกลับ</button>
             <button onClick={onNext} style={{ ...primaryBtn, flex: 1 }}>ถัดไป</button>
           </div>
         </div>

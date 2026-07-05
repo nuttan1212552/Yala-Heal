@@ -100,7 +100,7 @@ export function AppProvider({ children }) {
   }, [profile.phone]);
 
   const saveHousehold = useCallback(async (patch) => {
-    const next = { ...(household || {}), ...patch, phone: profile.phone, name: profile.name, lineUserId: profile.lineUserId };
+    const next = { ...(household || {}), ...patch, phone: patch.phone || profile.phone, name: patch.name || profile.name, lineUserId: profile.lineUserId };
     setHousehold(next);
     try { localStorage.setItem('yh_household', JSON.stringify(next)); } catch { /* noop */ }
     await upsertHousehold(next);
